@@ -1,0 +1,21 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.exe
+
+# CM runtime artifacts
+cm_test_payload.txt
+cm_config.json
+
+# VS Code
+.vscode/
+
+# Old monolith artifacts
+CM.o
+main.o
+out.txt
+
+# Windows specific
+Thumbs.db
+Desktop.ini

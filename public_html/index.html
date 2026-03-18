@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CM YouTube Downloader</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <main class="container">
+        <!-- Login Section -->
+        <section id="login-section" class="glass-card active">
+            <div class="header">
+                <h2>Welcome to CM</h2>
+                <p>Sign in to access the Downloader</p>
+            </div>
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Enter your username" required>
+                </div>
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="btn primary-btn">Login to CM 🚀</button>
+                <div id="login-error" class="error-msg"></div>
+            </form>
+        </section>
+
+        <!-- Downloader Section -->
+        <section id="downloader-section" class="glass-card hidden">
+            <div class="header">
+                <h2>CM Video Downloader</h2>
+                <p>Welcome, <span id="user-display">User</span>! 🎥</p>
+            </div>
+            
+            <form id="download-form">
+                <div class="input-group">
+                    <label for="youtube-url">YouTube URL</label>
+                    <input type="url" id="youtube-url" placeholder="https://www.youtube.com/watch?v=..." required>
+                </div>
+                
+                <button type="submit" id="download-btn" class="btn download-btn">
+                    <span id="btn-text">Download Video ⬇️</span>
+                    <div id="btn-spinner" class="spinner hidden"></div>
+                </button>
+                <div id="download-status" class="status-msg"></div>
+            </form>
+
+            <button class="btn logout-btn" onclick="logout()">Logout</button>
+        </section>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>
