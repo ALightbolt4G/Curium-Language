@@ -153,6 +153,11 @@ static void curium_signal_handler(int sig) {
     curium_error_detail_set_suggestion(&detail, "%s", fix);
     
     /* For critical crashes, we use async-signal-safe write */
+    /* For critical crashes, we use async-signal-safe write */
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif
     if (sig == SIGSEGV) {
         const char* neon_err = 
             "\n\n\xE2\x9A\xA0\xEF\xB8\x8F  CM Runtime Error:\n"
@@ -160,23 +165,26 @@ static void curium_signal_handler(int sig) {
             "   Object: ptr pointer unknown\n"
             "   Status: Accessed invalid memory address\n"
             "   Fix: Check for null pointer dereference or use-after-free\n\n";
-        (void)curium_write(STDERR_FILENO, neon_err, strlen(neon_err));
+        curium_write(STDERR_FILENO, neon_err, strlen(neon_err));
     } else {
         const char* header = "\n\n\xF0\x9F\x92\xA5 CRITICAL FATAL ERROR: ";
-        (void)curium_write(STDERR_FILENO, header, strlen(header));
-        (void)curium_write(STDERR_FILENO, sig_name, strlen(sig_name));
-        (void)curium_write(STDERR_FILENO, "\n", 1);
+        curium_write(STDERR_FILENO, header, strlen(header));
+        curium_write(STDERR_FILENO, sig_name, strlen(sig_name));
+        curium_write(STDERR_FILENO, "\n", 1);
         
         const char* status_msg = "   Status: ";
-        (void)curium_write(STDERR_FILENO, status_msg, strlen(status_msg));
-        (void)curium_write(STDERR_FILENO, status, strlen(status));
-        (void)curium_write(STDERR_FILENO, "\n", 1);
+        curium_write(STDERR_FILENO, status_msg, strlen(status_msg));
+        curium_write(STDERR_FILENO, status, strlen(status));
+        curium_write(STDERR_FILENO, "\n", 1);
         
         const char* fix_msg = "   Fix: ";
-        (void)curium_write(STDERR_FILENO, fix_msg, strlen(fix_msg));
-        (void)curium_write(STDERR_FILENO, fix, strlen(fix));
-        (void)curium_write(STDERR_FILENO, "\n\n", 2);
+        curium_write(STDERR_FILENO, fix_msg, strlen(fix_msg));
+        curium_write(STDERR_FILENO, fix, strlen(fix));
+        curium_write(STDERR_FILENO, "\n\n", 2);
     }
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
     
     _exit(1);
 }
