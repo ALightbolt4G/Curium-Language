@@ -75,7 +75,7 @@ Explore the full Curium documentation suite:
 
 ## 🤝 Contributing
 
-We welcome contributions! Please check out our [GitHub repository](https://github.com/ALightbolt4G/Curium-lang) for more information.
+We welcome contributions! Please check out our [GitHub repository](https://github.com/ALightbolt4G/Curium-Language) for more information.
 
 ---
 *✨ Happy coding with Curium!*

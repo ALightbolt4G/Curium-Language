@@ -1,0 +1,14 @@
+
+*.cm linguist-language=Curium
+*.cm x-parent=programming
+
+
+*.cm linguist-syntax-highlighting=c
+
+
+src/compiler/generated/*.c linguist-generated=true
+src/compiler/lexer/*.c linguist-generated=true
+src/compiler/parser/*.c linguist-generated=true
+
+
+tests/*.cm linguist-documentation=true

@@ -1,0 +1,19 @@
+{
+  "name": "Curium",
+  "scopeName": "source.cm",
+  "patterns": [
+    {
+      "name": "keyword.control.curium",
+      "match": "\\b(fn|let|mut|if|else|while|for|return|reactor|arena|dyn|pub|struct|import)\\b"
+    },
+    {
+      "name": "string.quoted.double.curium",
+      "begin": "\"",
+      "end": "\""
+    },
+    {
+      "name": "comment.line.double-slash.curium",
+      "match": "//.*$"
+    }
+  ]
+}
