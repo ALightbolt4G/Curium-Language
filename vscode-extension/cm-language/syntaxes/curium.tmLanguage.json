@@ -1,133 +1,59 @@
 {
-  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Curium",
+  "scopeName": "source.cm",
+  "fileTypes": ["cm", "curium"],
   "patterns": [
-    { "include": "#comments" },
-    { "include": "#strings" },
-    { "include": "#numbers" },
-    { "include": "#keywords" },
-    { "include": "#types" },
-    { "include": "#constants" },
-    { "include": "#functions" },
-    { "include": "#operators" },
-    { "include": "#variables" }
-  ],
-  "repository": {
-    "comments": {
-      "patterns": [
-        { "name": "comment.line.double-slash.curium", "match": "//.*$" },
-        { "name": "comment.block.curium", "begin": "/\\*", "end": "\\*/" }
-      ]
+    {
+      "name": "comment.line.double-slash.curium",
+      "match": "//.*$"
     },
-    "keywords": {
+    {
+      "name": "comment.block.curium",
+      "begin": "/\\*",
+      "end": "\\*/"
+    },
+    {
+      "name": "string.quoted.double.curium",
+      "begin": "\"",
+      "end": "\"",
       "patterns": [
         {
-          "name": "keyword.control.curium",
-          "match": "\\b(if|else|while|for|in|return|match|break|continue|try|catch|throw|spawn|import|reactor)\\b"
+          "name": "constant.character.escape.curium",
+          "match": "\\\\."
         },
         {
-          "name": "keyword.declaration.curium",
-          "match": "\\b(fn|let|mut|struct|enum|union|impl|trait|pub|dyn|arena|manual)\\b"
-        },
-        {
-          "name": "keyword.other.curium",
-          "match": "\\b(c|require|new|free|malloc)\\b"
+          "name": "variable.interpolation.curium",
+          "match": "\\{[^\\}]+\\}"
         }
       ]
     },
-    "types": {
-      "patterns": [
-        {
-          "name": "storage.type.primitive.curium",
-          "match": "\\b(string|strnum|int|float|bool|void|i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|usize)\\b"
-        },
-        {
-          "name": "storage.type.container.curium",
-          "match": "\\b(array|slice|map|Result|Option)\\b"
-        },
-        {
-          "name": "entity.name.type.curium",
-          "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
-        }
-      ]
+    {
+      "name": "keyword.control.curium",
+      "match": "\\b(fn|let|mut|if|else|while|for|return|match|break|continue|dyn|try|catch|throw|spawn|join|reactor|pub|import|require|gc|print|println|input|strnum|impl|struct|enum|union|trait|arena|manual|rc)\\b"
     },
-    "constants": {
-      "patterns": [
-        {
-          "name": "constant.language.curium",
-          "match": "\\b(true|false|None|Some|Ok|Err)\\b"
-        }
-      ]
+    {
+      "name": "storage.type.curium",
+      "match": "\\b(int|float|string|bool|void|i8|u8|i16|i32|i64|u16|u32|u64|f32|f64|usize|Option|Result|array|slice|map)\\b"
     },
-    "strings": {
-      "patterns": [
-        {
-          "name": "string.quoted.double.curium",
-          "begin": "\"",
-          "end": "\"",
-          "patterns": [
-            { "name": "constant.character.escape.curium", "match": "\\\\." },
-            {
-              "name": "meta.interpolation.curium",
-              "begin": "\\{",
-              "end": "\\}",
-              "patterns": [
-                { "include": "$self" }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "string.quoted.raw.curium",
-          "begin": "r\"",
-          "end": "\""
-        }
-      ]
+    {
+      "name": "constant.language.curium",
+      "match": "\\b(true|false|Ok|Err|Some|None)\\b"
     },
-    "numbers": {
-      "patterns": [
-        { "name": "constant.numeric.float.curium", "match": "\\b\\d+\\.\\d+\\b" },
-        { "name": "constant.numeric.integer.curium", "match": "\\b\\d+\\b" }
-      ]
+    {
+      "name": "constant.numeric.curium",
+      "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
     },
-    "operators": {
-      "patterns": [
-        {
-          "name": "keyword.operator.comparison.curium",
-          "match": "(==|!=|<=|>=|<|>)"
-        },
-        {
-          "name": "keyword.operator.logical.curium",
-          "match": "(&&|\\|\\||!)"
-        },
-        {
-          "name": "keyword.operator.arrow.curium",
-          "match": "(->|=>)"
-        },
-        {
-          "name": "keyword.operator.curium",
-          "match": "(\\+|-|\\*|/|=|\\^|\\?|\\$)"
-        }
-      ]
+    {
+      "name": "keyword.operator.curium",
+      "match": "(\\+|\\-|\\*|/|%|==|!=|<|>|<=|>=|&&|\\|\\||!|&|\\||\\^|\\?|\\?\\?|->|=>|\\.|:|:=|@|\\$)"
     },
-    "functions": {
-      "patterns": [
-        {
-          "match": "\\b(print|input|gc)\\b",
-          "name": "support.function.builtin.curium"
-        },
-        {
-          "match": "\\b([a-z_][a-zA-Z0-9_]*)\\s*(?=\\()",
-          "captures": { "1": { "name": "entity.name.function.curium" } }
-        }
-      ]
-    },
-    "variables": {
-      "patterns": [
-        { "name": "variable.language.self.curium", "match": "\\b(self|Self)\\b" },
-        { "name": "variable.other.curium", "match": "\\b[a-z_][a-zA-Z0-9_]*\\b" }
-      ]
+    {
+      "name": "meta.function.curium",
+      "match": "\\b(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.curium" },
+        "2": { "name": "entity.name.function.curium" }
+      }
     }
-  },
-  "scopeName": "source.curium"
+  ]
 }

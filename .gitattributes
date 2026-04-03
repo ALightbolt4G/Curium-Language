@@ -1,14 +1,17 @@
-
 *.cm linguist-language=Curium
 *.cm x-parent=programming
 
+# Syntax Highlighting
+*.cm linguist-syntax-highlighting=curium
 
-*.cm linguist-syntax-highlighting=c
+# Source Files (Ensure they are not marked as generated)
+src/**/*.c linguist-generated=false
+src/**/*.h linguist-generated=false
 
+# Truly Generated Files
+curium_out.c linguist-generated=true
+build/ linguist-generated=true
 
-src/compiler/generated/*.c linguist-generated=true
-src/compiler/lexer/*.c linguist-generated=true
-src/compiler/parser/*.c linguist-generated=true
-
-
-tests/*.cm linguist-documentation=true
+# Tests (Should be recognized as code, not docs)
+tests/*.cm linguist-documentation=false
+tests/*.cm linguist-detectable=true
