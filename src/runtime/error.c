@@ -11,10 +11,10 @@
 #ifndef STDERR_FILENO
 #define STDERR_FILENO 2
 #endif
-#define curium_write _write
+#define curium_write(fd, buf, count) ((void)_write(fd, buf, (unsigned int)(count)))
 #else
 #include <unistd.h>
-#define curium_write write
+#define curium_write(fd, buf, count) do { if (write(fd, buf, count)) {} } while (0)
 #endif
 
 __thread curium_exception_frame_t* curium_current_frame = NULL;
@@ -152,8 +152,7 @@ static void curium_signal_handler(int sig) {
     curium_error_detail_set_message(&detail, "%s", status);
     curium_error_detail_set_suggestion(&detail, "%s", fix);
     
-    /* For critical crashes, we use async-signal-safe write with a check to satisfy
-       the compiler's warn_unused_result attribute. */
+    /* For critical crashes, we use async-signal-safe write */
     if (sig == SIGSEGV) {
         const char* neon_err = 
             "\n\n\xE2\x9A\xA0\xEF\xB8\x8F  CM Runtime Error:\n"
@@ -161,22 +160,22 @@ static void curium_signal_handler(int sig) {
             "   Object: ptr pointer unknown\n"
             "   Status: Accessed invalid memory address\n"
             "   Fix: Check for null pointer dereference or use-after-free\n\n";
-        if (curium_write(STDERR_FILENO, neon_err, strlen(neon_err)) < 0) {}
+        curium_write(STDERR_FILENO, neon_err, strlen(neon_err));
     } else {
         const char* header = "\n\n\xF0\x9F\x92\xA5 CRITICAL FATAL ERROR: ";
-        if (curium_write(STDERR_FILENO, header, strlen(header)) < 0) {}
-        if (curium_write(STDERR_FILENO, sig_name, strlen(sig_name)) < 0) {}
-        if (curium_write(STDERR_FILENO, "\n", 1) < 0) {}
+        curium_write(STDERR_FILENO, header, strlen(header));
+        curium_write(STDERR_FILENO, sig_name, strlen(sig_name));
+        curium_write(STDERR_FILENO, "\n", 1);
         
         const char* status_msg = "   Status: ";
-        if (curium_write(STDERR_FILENO, status_msg, strlen(status_msg)) < 0) {}
-        if (curium_write(STDERR_FILENO, status, strlen(status)) < 0) {}
-        if (curium_write(STDERR_FILENO, "\n", 1) < 0) {}
+        curium_write(STDERR_FILENO, status_msg, strlen(status_msg));
+        curium_write(STDERR_FILENO, status, strlen(status));
+        curium_write(STDERR_FILENO, "\n", 1);
         
         const char* fix_msg = "   Fix: ";
-        if (curium_write(STDERR_FILENO, fix_msg, strlen(fix_msg)) < 0) {}
-        if (curium_write(STDERR_FILENO, fix, strlen(fix)) < 0) {}
-        if (curium_write(STDERR_FILENO, "\n\n", 2) < 0) {}
+        curium_write(STDERR_FILENO, fix_msg, strlen(fix_msg));
+        curium_write(STDERR_FILENO, fix, strlen(fix));
+        curium_write(STDERR_FILENO, "\n\n", 2);
     }
     
     _exit(1);
