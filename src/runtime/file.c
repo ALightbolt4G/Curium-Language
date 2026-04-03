@@ -43,6 +43,7 @@ curium_string_t* curium_file_read(const char* filepath) {
     size_t bytes_read = fread(buffer, 1, (size_t)fsize, fp);
     if (bytes_read != (size_t)fsize) {
         free(buffer);
+        buffer = NULL;
         fclose(fp);
         curium_error_set(-1, "Failed to read full file content in curium_file_read.");
         return NULL;

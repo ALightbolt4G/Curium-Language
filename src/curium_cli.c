@@ -404,6 +404,7 @@ static char* curium_doctor_read_file(const char* path, size_t* out_len) {
     size_t rd = fread(buf, 1, (size_t)sz, f);
     if (rd != (size_t)sz) {
         free(buf);
+        buf = NULL;
         fclose(f);
         return NULL;
     }

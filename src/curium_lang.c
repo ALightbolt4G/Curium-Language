@@ -951,6 +951,7 @@ static char* curium_read_file_all(const char* path) {
     size_t read = fread(buf, 1, (size_t)sz, f);
     if (read != (size_t)sz) {
         free(buf);
+        buf = NULL;
         fclose(f);
         return NULL;
     }
