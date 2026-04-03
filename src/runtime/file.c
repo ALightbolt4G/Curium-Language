@@ -1,25 +1,25 @@
-#include "cm/file.h"
-#include "cm/memory.h"
-#include "cm/error.h"
+#include "curium/file.h"
+#include "curium/memory.h"
+#include "curium/error.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 
-int cm_file_exists(const char* filepath) {
+int curium_file_exists(const char* filepath) {
     if (!filepath) return 0;
     struct stat buffer;
     return (stat(filepath, &buffer) == 0);
 }
 
-cm_string_t* cm_file_read(const char* filepath) {
+curium_string_t* curium_file_read(const char* filepath) {
     if (!filepath) {
-        cm_error_set(-1, "Filepath to cm_file_read cannot be NULL.");
+        curium_error_set(-1, "Filepath to curium_file_read cannot be NULL.");
         return NULL;
     }
 
     FILE* fp = fopen(filepath, "rb");
     if (!fp) {
-        cm_error_set(-1, "File missing or permissions denied in cm_file_read.");
+        curium_error_set(-1, "File missing or permissions denied in curium_file_read.");
         return NULL;
     }
 
@@ -29,14 +29,14 @@ cm_string_t* cm_file_read(const char* filepath) {
 
     if (fsize < 0) {
         fclose(fp);
-        cm_error_set(-1, "Unable to deduce file size in cm_file_read.");
+        curium_error_set(-1, "Unable to deduce file size in curium_file_read.");
         return NULL;
     }
 
     char* buffer = (char*)malloc(fsize + 1);
     if (!buffer) {
         fclose(fp);
-        cm_error_set(-1, "Insufficient native memory allocated for file read.");
+        curium_error_set(-1, "Insufficient native memory allocated for file read.");
         return NULL;
     }
 
@@ -46,18 +46,18 @@ cm_string_t* cm_file_read(const char* filepath) {
     fclose(fp);
 
     // Create a tracked CM string instance safely escaping the read bounds
-    cm_string_t* str = cm_string_new(buffer);
+    curium_string_t* str = curium_string_new(buffer);
     free(buffer);
     
     return str;
 }
 
-int cm_file_write(const char* filepath, const char* content) {
+int curium_file_write(const char* filepath, const char* content) {
     if (!filepath || !content) return 0;
 
     FILE* fp = fopen(filepath, "wb");
     if (!fp) {
-        cm_error_set(-1, "Unable to open physical file pointer for cm_file_write.");
+        curium_error_set(-1, "Unable to open physical file pointer for curium_file_write.");
         return 0;
     }
 

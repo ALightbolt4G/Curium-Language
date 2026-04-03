@@ -1,0 +1,65 @@
+// Curium Standard Library — HTTPS (HTTP Client)
+// import "std/https.cm";
+//
+// Provides: http_get, http_post, http_put, http_delete
+//           http_status, http_body, http_free
+
+pub fn http_get(url: string) -> int {
+    // Returns opaque handle to CHttpResponse
+    c {
+        CHttpResponse* curium___resp = curium_http_get(curium_url->data);
+        return (int)(intptr_t)curium___resp;
+    }
+}
+
+pub fn http_post(url: string, body: string, content_type: string) -> int {
+    c {
+        CHttpResponse* curium___resp = curium_http_post(curium_url->data, curium_body->data, curium_content_type->data);
+        return (int)(intptr_t)curium___resp;
+    }
+}
+
+pub fn http_put(url: string, body: string, content_type: string) -> int {
+    c {
+        CHttpResponse* curium___resp = curium_http_put(curium_url->data, curium_body->data, curium_content_type->data);
+        return (int)(intptr_t)curium___resp;
+    }
+}
+
+pub fn http_delete(url: string) -> int {
+    c {
+        CHttpResponse* curium___resp = curium_http_delete(curium_url->data);
+        return (int)(intptr_t)curium___resp;
+    }
+}
+
+pub fn http_status(handle: int) -> int {
+    c {
+        CHttpResponse* curium___resp = (CHttpResponse*)(intptr_t)curium_handle;
+        if (!curium___resp) return 0;
+        return curium___resp->status_code;
+    }
+}
+
+pub fn http_body(handle: int) -> string {
+    c {
+        CHttpResponse* curium___resp = (CHttpResponse*)(intptr_t)curium_handle;
+        if (!curium___resp || !curium___resp->body) return curium_string_new("");
+        return curium_string_new(curium___resp->body->data);
+    }
+}
+
+pub fn http_free(handle: int) {
+    c {
+        CHttpResponse* curium___resp = (CHttpResponse*)(intptr_t)curium_handle;
+        if (curium___resp) CHttpResponse_delete(curium___resp);
+    }
+}
+
+// Express-style server helpers
+
+pub fn app_listen(port: int) {
+    c {
+        curium_app_listen(curium_port);
+    }
+}

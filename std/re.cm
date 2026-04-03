@@ -1,0 +1,105 @@
+// Curium Standard Library — Regex (re)
+// import "std/re.cm";
+//
+// Provides: re_match, re_search, re_replace
+// Uses POSIX regex on Linux/macOS and a simple pattern matcher on Windows
+
+pub fn re_match(pattern: string, text: string) -> bool {
+    c {
+        #ifdef _WIN32
+            // Simple Windows fallback: substring search
+            return strstr(curium_text->data, curium_pattern->data) != NULL;
+        #else
+            #include <regex.h>
+            regex_t curium___regex;
+            int curium___result = regcomp(&curium___regex, curium_pattern->data, REG_EXTENDED | REG_NOSUB);
+            if (curium___result != 0) return 0;
+            curium___result = regexec(&curium___regex, curium_text->data, 0, NULL, 0);
+            regfree(&curium___regex);
+            return curium___result == 0;
+        #endif
+    }
+}
+
+pub fn re_search(pattern: string, text: string) -> string {
+    c {
+        #ifdef _WIN32
+            const char* curium___found = strstr(curium_text->data, curium_pattern->data);
+            if (curium___found) {
+                char curium___buf[1024];
+                size_t curium___len = strlen(curium_pattern->data);
+                if (curium___len > 1023) curium___len = 1023;
+                memcpy(curium___buf, curium___found, curium___len);
+                curium___buf[curium___len] = '\0';
+                return curium_string_new(curium___buf);
+            }
+            return curium_string_new("");
+        #else
+            #include <regex.h>
+            regex_t curium___regex;
+            regmatch_t curium___match;
+            int curium___result = regcomp(&curium___regex, curium_pattern->data, REG_EXTENDED);
+            if (curium___result != 0) return curium_string_new("");
+            curium___result = regexec(&curium___regex, curium_text->data, 1, &curium___match, 0);
+            if (curium___result == 0) {
+                int curium___start = curium___match.rm_so;
+                int curium___end = curium___match.rm_eo;
+                int curium___len = curium___end - curium___start;
+                char* curium___buf = malloc(curium___len + 1);
+                memcpy(curium___buf, curium_text->data + curium___start, curium___len);
+                curium___buf[curium___len] = '\0';
+                curium_string_t* curium___res = curium_string_new(curium___buf);
+                free(curium___buf);
+                regfree(&curium___regex);
+                return curium___res;
+            }
+            regfree(&curium___regex);
+            return curium_string_new("");
+        #endif
+    }
+}
+
+pub fn re_replace(pattern: string, replacement: string, text: string) -> string {
+    c {
+        #ifdef _WIN32
+            // Simple find-and-replace on Windows
+            const char* curium___pos = strstr(curium_text->data, curium_pattern->data);
+            if (!curium___pos) return curium_string_new(curium_text->data);
+            size_t curium___prefix_len = curium___pos - curium_text->data;
+            size_t curium___pat_len = strlen(curium_pattern->data);
+            size_t curium___rep_len = strlen(curium_replacement->data);
+            size_t curium___suffix_len = strlen(curium___pos + curium___pat_len);
+            size_t curium___total = curium___prefix_len + curium___rep_len + curium___suffix_len + 1;
+            char* curium___buf = malloc(curium___total);
+            memcpy(curium___buf, curium_text->data, curium___prefix_len);
+            memcpy(curium___buf + curium___prefix_len, curium_replacement->data, curium___rep_len);
+            memcpy(curium___buf + curium___prefix_len + curium___rep_len, curium___pos + curium___pat_len, curium___suffix_len);
+            curium___buf[curium___total - 1] = '\0';
+            curium_string_t* curium___res = curium_string_new(curium___buf);
+            free(curium___buf);
+            return curium___res;
+        #else
+            #include <regex.h>
+            regex_t curium___regex;
+            regmatch_t curium___match;
+            int curium___result = regcomp(&curium___regex, curium_pattern->data, REG_EXTENDED);
+            if (curium___result != 0) return curium_string_new(curium_text->data);
+            curium___result = regexec(&curium___regex, curium_text->data, 1, &curium___match, 0);
+            if (curium___result == 0) {
+                int curium___start = curium___match.rm_so;
+                int curium___end = curium___match.rm_eo;
+                size_t curium___total = strlen(curium_text->data) - (curium___end - curium___start) + strlen(curium_replacement->data) + 1;
+                char* curium___buf = malloc(curium___total);
+                memcpy(curium___buf, curium_text->data, curium___start);
+                memcpy(curium___buf + curium___start, curium_replacement->data, strlen(curium_replacement->data));
+                strcpy(curium___buf + curium___start + strlen(curium_replacement->data), curium_text->data + curium___end);
+                curium_string_t* curium___res = curium_string_new(curium___buf);
+                free(curium___buf);
+                regfree(&curium___regex);
+                return curium___res;
+            }
+            regfree(&curium___regex);
+            return curium_string_new(curium_text->data);
+        #endif
+    }
+}

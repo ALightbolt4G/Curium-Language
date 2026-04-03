@@ -1,0 +1,31 @@
+import "tests/lib.curium";
+
+fn main() {
+    println("Testing CM v2.05 features...\n");
+
+    // Test Struct and Import
+    let m: MathResult = create_result(42);
+    println("MathResult: val=" + m.val.to_str() + ", even=" + m.is_even.to_str());
+
+    // Test Result and ? operator
+    let res: Result<int, string> = divide(10, 2);
+    let val: int = res?;
+    println("Result of 10/2 = " + val.to_str());
+
+    // Test Dynamic Operators
+    mut x: float = 10.0;
+    mut y: float = 5.0;
+    mut action: string = "avg"; 
+
+    dyn action in (
+        "+" => { return x + y; },
+        "avg" => { return (x + y) / 2.0; }
+    ) dyn($) {
+        return 0.0;
+    };
+
+    let calc = x action y;
+    println("Dynamic 'avg' of 10 and 5 = " + calc);
+
+    println("\nAll tests passed!");
+}

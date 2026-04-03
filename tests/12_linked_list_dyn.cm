@@ -1,0 +1,18 @@
+struct DynNode {
+    val: dyn;
+    next: ^DynNode;
+}
+
+fn main() {
+    // Dyn typed linked list — dyn values are strings at runtime
+    mut head: DynNode;
+    head.val = "10";
+
+    mut second: DynNode;
+    second.val = "Hello";
+
+    head.next = ^second;
+    second.next = 0;
+
+    println("Dyn typed linked list connected!");
+}

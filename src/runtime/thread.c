@@ -1,4 +1,4 @@
-    #include "cm/thread.h"
+    #include "curium/thread.h"
     #include <stdlib.h>
 
     #ifdef _WIN32
@@ -7,7 +7,7 @@
     #include <pthread.h>
     #endif
 
-    CMMutex cm_mutex_init(void) {
+    CMMutex curium_mutex_init(void) {
     #ifdef _WIN32
         CRITICAL_SECTION* cs = (CRITICAL_SECTION*)malloc(sizeof(CRITICAL_SECTION));
         if (cs) InitializeCriticalSection(cs);
@@ -19,7 +19,7 @@
     #endif
     }
 
-    void cm_mutex_lock(CMMutex mutex) {
+    void curium_mutex_lock(CMMutex mutex) {
         if (!mutex) return;
     #ifdef _WIN32
         EnterCriticalSection((CRITICAL_SECTION*)mutex);
@@ -28,7 +28,7 @@
     #endif
     }
 
-    void cm_mutex_unlock(CMMutex mutex) {
+    void curium_mutex_unlock(CMMutex mutex) {
         if (!mutex) return;
     #ifdef _WIN32
         LeaveCriticalSection((CRITICAL_SECTION*)mutex);
@@ -37,7 +37,7 @@
     #endif
     }
 
-    void cm_mutex_destroy(CMMutex mutex) {
+    void curium_mutex_destroy(CMMutex mutex) {
         if (!mutex) return;
     #ifdef _WIN32
         DeleteCriticalSection((CRITICAL_SECTION*)mutex);
@@ -64,7 +64,7 @@
     }
     #endif
 
-    CMThread cm_thread_create(void* (*func)(void*), void* arg) {
+    CMThread curium_thread_create(void* (*func)(void*), void* arg) {
         if (!func) return NULL;
     #ifdef _WIN32
         ThreadArgs* ta = (ThreadArgs*)malloc(sizeof(ThreadArgs));
@@ -84,7 +84,7 @@
     #endif
     }
 
-    int cm_thread_join(CMThread thread) {
+    int curium_thread_join(CMThread thread) {
         if (!thread) return 0;
     #ifdef _WIN32
         WaitForSingleObject((HANDLE)thread, INFINITE);

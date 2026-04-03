@@ -1,0 +1,13 @@
+fn main() {
+    let t: bool = true;
+    let f: bool = false;
+
+    let res1: bool = t && f;
+    let res2: bool = t || f;
+
+    print("t AND f = ");
+    println(res1);
+    
+    print("t OR f = ");
+    println(res2);
+}

@@ -1,5 +1,5 @@
-#include "cm/error_detail.h"
-#include "cm/string.h"
+#include "curium/error_detail.h"
+#include "curium/string.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,39 +7,39 @@
 
 #ifdef _WIN32
 #include <io.h>
-#define cm_isatty _isatty
-#define cm_fileno _fileno
+#define curium_isatty _isatty
+#define curium_fileno _fileno
 #else
 #include <unistd.h>
-#define cm_isatty isatty
-#define cm_fileno fileno
+#define curium_isatty isatty
+#define curium_fileno fileno
 #endif
 
-static __thread cm_error_detail_t cm_current_error_detail;
+static __thread curium_error_detail_t curium_current_error_detail;
 
-void cm_error_detail_init(cm_error_detail_t* detail) {
+void curium_error_detail_init(curium_error_detail_t* detail) {
     if (!detail) return;
     memset(detail, 0, sizeof(*detail));
-    detail->code = CM_SUCCESS;
-    detail->severity = CM_SEVERITY_ERROR;
+    detail->code = CURIUM_SUCCESS;
+    detail->severity = CURIUM_SEVERITY_ERROR;
     detail->line = -1;
     detail->column = -1;
 }
 
-void cm_error_detail_set_location(cm_error_detail_t* detail, const char* file, int line, int column) {
+void curium_error_detail_set_location(curium_error_detail_t* detail, const char* file, int line, int column) {
     if (!detail) return;
     if (file) strncpy(detail->file, file, sizeof(detail->file) - 1);
     detail->line = line;
     detail->column = column;
 }
 
-void cm_error_detail_set_object(cm_error_detail_t* detail, const char* type, const char* name) {
+void curium_error_detail_set_object(curium_error_detail_t* detail, const char* type, const char* name) {
     if (!detail) return;
     if (type) strncpy(detail->object_type, type, sizeof(detail->object_type) - 1);
     if (name) strncpy(detail->object_name, name, sizeof(detail->object_name) - 1);
 }
 
-void cm_error_detail_set_message(cm_error_detail_t* detail, const char* fmt, ...) {
+void curium_error_detail_set_message(curium_error_detail_t* detail, const char* fmt, ...) {
     if (!detail || !fmt) return;
     va_list args;
     va_start(args, fmt);
@@ -47,7 +47,7 @@ void cm_error_detail_set_message(cm_error_detail_t* detail, const char* fmt, ...
     va_end(args);
 }
 
-void cm_error_detail_set_suggestion(cm_error_detail_t* detail, const char* fmt, ...) {
+void curium_error_detail_set_suggestion(curium_error_detail_t* detail, const char* fmt, ...) {
     if (!detail || !fmt) return;
     va_list args;
     va_start(args, fmt);
@@ -55,7 +55,7 @@ void cm_error_detail_set_suggestion(cm_error_detail_t* detail, const char* fmt, 
     va_end(args);
 }
 
-void cm_error_detail_set_context(cm_error_detail_t* detail,
+void curium_error_detail_set_context(curium_error_detail_t* detail,
                                   const char* before[3], int before_count,
                                   const char* current,
                                   const char* after[3], int after_count) {
@@ -74,14 +74,14 @@ void cm_error_detail_set_context(cm_error_detail_t* detail,
     detail->context_count = before_count + 1 + after_count;
 }
 
-static int cm_use_colors(void) {
-    return cm_isatty(cm_fileno(stderr));
+static int curium_use_colors(void) {
+    return curium_isatty(curium_fileno(stderr));
 }
 
-void cm_error_detail_print(const cm_error_detail_t* detail) {
+void curium_error_detail_print(const curium_error_detail_t* detail) {
     if (!detail) return;
     
-    int colors = cm_use_colors();
+    int colors = curium_use_colors();
     
     const char* red = colors ? "\x1b[31m" : "";
     const char* yellow = colors ? "\x1b[33m" : "";
@@ -89,10 +89,10 @@ void cm_error_detail_print(const cm_error_detail_t* detail) {
     const char* reset = colors ? "\x1b[0m" : "";
     const char* bold = colors ? "\x1b[1m" : "";
     
-    const char* emoji = detail->severity == CM_SEVERITY_FATAL ? "💥" :
-                        detail->severity == CM_SEVERITY_ERROR ? "❌" : "⚠️";
-    const char* severity = detail->severity == CM_SEVERITY_FATAL ? "Fatal Error" :
-                           detail->severity == CM_SEVERITY_ERROR ? "Error" : "Warning";
+    const char* emoji = detail->severity == CURIUM_SEVERITY_FATAL ? "💥" :
+                        detail->severity == CURIUM_SEVERITY_ERROR ? "❌" : "⚠️";
+    const char* severity = detail->severity == CURIUM_SEVERITY_FATAL ? "Fatal Error" :
+                           detail->severity == CURIUM_SEVERITY_ERROR ? "Error" : "Warning";
     
     fprintf(stderr, "\n%s%s %s%s: %s%s%s\n", 
             bold, emoji, severity, reset,
@@ -118,10 +118,10 @@ void cm_error_detail_print(const cm_error_detail_t* detail) {
     fprintf(stderr, "\n");
 }
 
-void cm_error_detail_print_syntax(const cm_error_detail_t* detail) {
+void curium_error_detail_print_syntax(const curium_error_detail_t* detail) {
     if (!detail) return;
     
-    int colors = cm_use_colors();
+    int colors = curium_use_colors();
     const char* red = colors ? "\x1b[31m" : "";
     const char* cyan = colors ? "\x1b[36m" : "";
     const char* gray = colors ? "\x1b[90m" : "";
@@ -175,10 +175,10 @@ void cm_error_detail_print_syntax(const cm_error_detail_t* detail) {
     }
 }
 
-void cm_error_detail_print_runtime(const cm_error_detail_t* detail) {
+void curium_error_detail_print_runtime(const curium_error_detail_t* detail) {
     if (!detail) return;
     
-    int colors = cm_use_colors();
+    int colors = curium_use_colors();
     const char* yellow = colors ? "\x1b[33m" : "";
     const char* cyan = colors ? "\x1b[36m" : "";
     const char* reset = colors ? "\x1b[0m" : "";
@@ -202,65 +202,65 @@ void cm_error_detail_print_runtime(const cm_error_detail_t* detail) {
     fprintf(stderr, "\n");
 }
 
-cm_string_t* cm_error_detail_to_json(const cm_error_detail_t* detail) {
-    if (!detail) return cm_string_new("{}");
+curium_string_t* curium_error_detail_to_json(const curium_error_detail_t* detail) {
+    if (!detail) return curium_string_new("{}");
     
-    cm_string_t* json = cm_string_new("{\"error\":{\"code\":");
+    curium_string_t* json = curium_string_new("{\"error\":{\"code\":");
     
     char buf[64];
     snprintf(buf, sizeof(buf), "%d", detail->code);
-    cm_string_append(json, buf);
+    curium_string_append(json, buf);
     
-    cm_string_append(json, ",\"severity\":");
+    curium_string_append(json, ",\"severity\":");
     snprintf(buf, sizeof(buf), "%d", detail->severity);
-    cm_string_append(json, buf);
+    curium_string_append(json, buf);
     
     if (detail->message[0]) {
-        cm_string_append(json, ",\"message\":\"");
-        cm_string_append(json, detail->message);
-        cm_string_append(json, "\"");
+        curium_string_append(json, ",\"message\":\"");
+        curium_string_append(json, detail->message);
+        curium_string_append(json, "\"");
     }
     
     if (detail->file[0]) {
-        cm_string_append(json, ",\"file\":\"");
-        cm_string_append(json, detail->file);
-        cm_string_append(json, "\"");
+        curium_string_append(json, ",\"file\":\"");
+        curium_string_append(json, detail->file);
+        curium_string_append(json, "\"");
     }
     
     if (detail->line > 0) {
-        cm_string_append(json, ",\"line\":");
+        curium_string_append(json, ",\"line\":");
         snprintf(buf, sizeof(buf), "%d", detail->line);
-        cm_string_append(json, buf);
+        curium_string_append(json, buf);
     }
     
     if (detail->column > 0) {
-        cm_string_append(json, ",\"column\":");
+        curium_string_append(json, ",\"column\":");
         snprintf(buf, sizeof(buf), "%d", detail->column);
-        cm_string_append(json, buf);
+        curium_string_append(json, buf);
     }
     
     if (detail->object_name[0]) {
-        cm_string_append(json, ",\"object\":{\"type\":\"");
-        cm_string_append(json, detail->object_type);
-        cm_string_append(json, "\",\"name\":\"");
-        cm_string_append(json, detail->object_name);
-        cm_string_append(json, "\"}");
+        curium_string_append(json, ",\"object\":{\"type\":\"");
+        curium_string_append(json, detail->object_type);
+        curium_string_append(json, "\",\"name\":\"");
+        curium_string_append(json, detail->object_name);
+        curium_string_append(json, "\"}");
     }
     
     if (detail->suggestion[0]) {
-        cm_string_append(json, ",\"suggestion\":\"");
-        cm_string_append(json, detail->suggestion);
-        cm_string_append(json, "\"");
+        curium_string_append(json, ",\"suggestion\":\"");
+        curium_string_append(json, detail->suggestion);
+        curium_string_append(json, "\"");
     }
     
-    cm_string_append(json, "}}");
+    curium_string_append(json, "}}");
     return json;
 }
 
-cm_error_detail_t* cm_error_detail_current(void) {
-    return &cm_current_error_detail;
+curium_error_detail_t* curium_error_detail_current(void) {
+    return &curium_current_error_detail;
 }
 
-void cm_error_detail_clear(void) {
-    cm_error_detail_init(&cm_current_error_detail);
+void curium_error_detail_clear(void) {
+    curium_error_detail_init(&curium_current_error_detail);
 }

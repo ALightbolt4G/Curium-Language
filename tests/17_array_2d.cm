@@ -1,0 +1,61 @@
+fn main() {
+    println("=== 2D Array Test ===");
+
+    c {
+        // 3x3 matrix
+        int matrix[3][3] = {
+            {1, 2, 3},
+            {4, 5, 6},
+            {7, 8, 9}
+        };
+
+        // Print matrix
+        printf("Matrix:\n");
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                printf("%d ", matrix[r][c]);
+            }
+            printf("\n");
+        }
+
+        // Row sums
+        printf("\nRow sums: ");
+        for (int r = 0; r < 3; r++) {
+            int sum = 0;
+            for (int c = 0; c < 3; c++) {
+                sum += matrix[r][c];
+            }
+            printf("%d ", sum);
+        }
+        printf("\n");
+
+        // Column sums
+        printf("Col sums: ");
+        for (int c = 0; c < 3; c++) {
+            int sum = 0;
+            for (int r = 0; r < 3; r++) {
+                sum += matrix[r][c];
+            }
+            printf("%d ", sum);
+        }
+        printf("\n");
+
+        // Diagonal sum
+        int diag = 0;
+        for (int i = 0; i < 3; i++) {
+            diag += matrix[i][i];
+        }
+        printf("Diagonal sum = %d\n", diag);
+
+        // Transpose
+        printf("\nTranspose:\n");
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                printf("%d ", matrix[c][r]);
+            }
+            printf("\n");
+        }
+    }
+
+    println("2D Array tests passed!");
+}

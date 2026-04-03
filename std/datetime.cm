@@ -1,0 +1,101 @@
+// Curium Standard Library — DateTime
+// import "std/datetime.cm";
+//
+// Provides: now_unix, now_str, year, month, day, hour, minute, second, 
+//           format_time, sleep_ms
+
+pub fn now_unix() -> int {
+    c {
+        return (int)time(NULL);
+    }
+}
+
+pub fn now_str() -> string {
+    c {
+        time_t curium___t = time(NULL);
+        struct tm* curium___tm = localtime(&curium___t);
+        char curium___buf[64];
+        strftime(curium___buf, sizeof(curium___buf), "%Y-%m-%d %H:%M:%S", curium___tm);
+        return curium_string_new(curium___buf);
+    }
+}
+
+pub fn year() -> int {
+    c {
+        time_t curium___t = time(NULL);
+        struct tm* curium___tm = localtime(&curium___t);
+        return curium___tm->tm_year + 1900;
+    }
+}
+
+pub fn month() -> int {
+    c {
+        time_t curium___t = time(NULL);
+        struct tm* curium___tm = localtime(&curium___t);
+        return curium___tm->tm_mon + 1;
+    }
+}
+
+pub fn day() -> int {
+    c {
+        time_t curium___t = time(NULL);
+        struct tm* curium___tm = localtime(&curium___t);
+        return curium___tm->tm_mday;
+    }
+}
+
+pub fn hour() -> int {
+    c {
+        time_t curium___t = time(NULL);
+        struct tm* curium___tm = localtime(&curium___t);
+        return curium___tm->tm_hour;
+    }
+}
+
+pub fn minute() -> int {
+    c {
+        time_t curium___t = time(NULL);
+        struct tm* curium___tm = localtime(&curium___t);
+        return curium___tm->tm_min;
+    }
+}
+
+pub fn second() -> int {
+    c {
+        time_t curium___t = time(NULL);
+        struct tm* curium___tm = localtime(&curium___t);
+        return curium___tm->tm_sec;
+    }
+}
+
+pub fn format_time(fmt: string) -> string {
+    c {
+        time_t curium___t = time(NULL);
+        struct tm* curium___tm = localtime(&curium___t);
+        char curium___buf[256];
+        strftime(curium___buf, sizeof(curium___buf), curium_fmt->data, curium___tm);
+        return curium_string_new(curium___buf);
+    }
+}
+
+pub fn day_of_week() -> int {
+    c {
+        time_t curium___t = time(NULL);
+        struct tm* curium___tm = localtime(&curium___t);
+        return curium___tm->tm_wday;
+    }
+}
+
+pub fn day_of_year() -> int {
+    c {
+        time_t curium___t = time(NULL);
+        struct tm* curium___tm = localtime(&curium___t);
+        return curium___tm->tm_yday + 1;
+    }
+}
+
+pub fn clock_ms() -> int {
+    c {
+        return (int)(clock() * 1000 / CLOCKS_PER_SEC);
+    }
+}

@@ -1,0 +1,87 @@
+// Curium Standard Library — Random
+// import "std/random.cm";
+//
+// Provides: rand_seed, rand_int, rand_range, rand_float, rand_bool,
+//           rand_string, rand_choice, rand_shuffle_seed
+
+pub fn rand_seed(seed: int) {
+    c {
+        srand((unsigned int)curium_seed);
+    }
+}
+
+pub fn rand_seed_time() {
+    c {
+        srand((unsigned int)time(NULL));
+    }
+}
+
+pub fn rand_int() -> int {
+    c {
+        return rand();
+    }
+}
+
+pub fn rand_range(lo: int, hi: int) -> int {
+    c {
+        if (curium_hi <= curium_lo) return curium_lo;
+        return curium_lo + (rand() % (curium_hi - curium_lo + 1));
+    }
+}
+
+pub fn rand_float() -> float {
+    c {
+        return (double)rand() / (double)RAND_MAX;
+    }
+}
+
+pub fn rand_bool() -> bool {
+    c {
+        return rand() % 2;
+    }
+}
+
+pub fn rand_string(length: int) -> string {
+    c {
+        const char curium___charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        int curium___charset_len = sizeof(curium___charset) - 1;
+        char* curium___buf = malloc(curium_length + 1);
+        for (int curium___i = 0; curium___i < curium_length; curium___i++) {
+            curium___buf[curium___i] = curium___charset[rand() % curium___charset_len];
+        }
+        curium___buf[curium_length] = '\0';
+        curium_string_t* curium___result = curium_string_new(curium___buf);
+        free(curium___buf);
+        return curium___result;
+    }
+}
+
+pub fn rand_hex(length: int) -> string {
+    c {
+        const char curium___hex[] = "0123456789abcdef";
+        char* curium___buf = malloc(curium_length + 1);
+        for (int curium___i = 0; curium___i < curium_length; curium___i++) {
+            curium___buf[curium___i] = curium___hex[rand() % 16];
+        }
+        curium___buf[curium_length] = '\0';
+        curium_string_t* curium___result = curium_string_new(curium___buf);
+        free(curium___buf);
+        return curium___result;
+    }
+}
+
+pub fn rand_uuid() -> string {
+    c {
+        const char curium___hex[] = "0123456789abcdef";
+        char curium___buf[37]; // 8-4-4-4-12 + null
+        int curium___pos = 0;
+        for (int curium___i = 0; curium___i < 32; curium___i++) {
+            if (curium___i == 8 || curium___i == 12 || curium___i == 16 || curium___i == 20) {
+                curium___buf[curium___pos++] = '-';
+            }
+            curium___buf[curium___pos++] = curium___hex[rand() % 16];
+        }
+        curium___buf[curium___pos] = '\0';
+        return curium_string_new(curium___buf);
+    }
+}

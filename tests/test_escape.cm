@@ -1,0 +1,3 @@
+fn main() {
+    print("Testing escape characters:\nLine 1\nLine 2\n");
+}

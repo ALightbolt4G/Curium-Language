@@ -1,0 +1,10 @@
+fn main() {
+    // v4.0: Reactor arena block
+    reactor arena(2048) {
+        let data: i32 = 100;
+        let msg: string = "arena allocated";
+        print("inside reactor arena");
+    }
+
+    print("after reactor arena - memory freed");
+}

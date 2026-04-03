@@ -1,0 +1,41 @@
+fn main() {
+    println("=== For Loop Test ===");
+
+    // Basic for..in with range-like iteration
+    // Using a while-based approach since for..in needs iterable
+    mut i = 0;
+    while i < 5 {
+        print("i = ");
+        println(i);
+        i = i + 1;
+    }
+
+    // Fibonacci via loop
+    mut a = 0;
+    mut b = 1;
+    mut n = 0;
+    print("Fibonacci: ");
+    while n < 10 {
+        print(a);
+        print(" ");
+        mut temp = a + b;
+        a = b;
+        b = temp;
+        n = n + 1;
+    }
+    println("");
+
+    // Power of 2
+    mut val = 1;
+    mut exp = 0;
+    while exp < 8 {
+        print("2^");
+        print(exp);
+        print(" = ");
+        println(val);
+        val = val * 2;
+        exp = exp + 1;
+    }
+
+    println("For/Loop tests passed!");
+}

@@ -1,0 +1,15 @@
+fn main() {
+    let p: ^int = 0;
+    let s: strnum = "123";
+
+    dyn my_var = 10;
+    dyn fn user_func() {
+        print("dynamic func");
+    }
+
+    dyn my_op in (
+        "add" => { print(my_var); }
+    ) dyn($) {
+        print("fallback");
+    };
+}

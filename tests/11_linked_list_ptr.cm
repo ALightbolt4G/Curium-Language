@@ -1,0 +1,19 @@
+struct Node {
+    val: int;
+    next: ^Node;
+}
+
+fn main() {
+    // Accurate pointer-based linked list
+    mut head: Node;
+    head.val = 1;
+    
+    mut second: Node;
+    second.val = 2;
+    
+    // Link using pointer notation
+    head.next = ^second;
+    second.next = 0;
+    
+    println("Pointer linked list connected!");
+}

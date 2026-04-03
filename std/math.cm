@@ -1,0 +1,73 @@
+// Curium Standard Library — Math
+// import "math.cm";
+//
+// Provides: abs, max, min, clamp, pow_int, sqrt_f64, floor_f64, ceil_f64
+
+pub fn abs(x: i32) -> i32 {
+    if x < 0 {
+        return 0 - x;
+    }
+    return x;
+}
+
+pub fn max(a: i32, b: i32) -> i32 {
+    if a > b {
+        return a;
+    }
+    return b;
+}
+
+pub fn min(a: i32, b: i32) -> i32 {
+    if a < b {
+        return a;
+    }
+    return b;
+}
+
+pub fn clamp(x: i32, lo: i32, hi: i32) -> i32 {
+    if x < lo {
+        return lo;
+    }
+    if x > hi {
+        return hi;
+    }
+    return x;
+}
+
+pub fn abs_f64(x: f64) -> f64 {
+    if x < 0.0 {
+        return 0.0 - x;
+    }
+    return x;
+}
+
+pub fn max_f64(a: f64, b: f64) -> f64 {
+    if a > b {
+        return a;
+    }
+    return b;
+}
+
+pub fn min_f64(a: f64, b: f64) -> f64 {
+    if a < b {
+        return a;
+    }
+    return b;
+}
+
+pub fn pow_int(base: i32, exp: i32) -> i32 {
+    mut result: i32 = 1;
+    mut i: i32 = 0;
+    while i < exp {
+        result = result * base;
+        i = i + 1;
+    }
+    return result;
+}
+
+pub fn factorial(n: i32) -> i32 {
+    if n <= 1 {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}

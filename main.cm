@@ -1,34 +1,7 @@
+fn hello(){
+    println("hello world");
+}
 
-fn main() {
-    let x = 10;
-    let y = 20;
-    mut z = x + y;
-    let s: string = "adham";
-    println("Hello, CM v2!");
-    println(s);
-    println("X+Y=");
-    println(z);
-    if (z > 10) {
-        println("z is greater than 10");
-    }
-    else {
-        println("z is less than or equal to 10");
-    }
-
-    mut i = 0;
-    while (i < 10) {
-        println(i);
-        i = i + 1;
-    }
-
-    while (z > 10) {
-        println(z);
-        z = z - 1;
-    }
-
-    match (z) {
-        10 => println("z is 10"),
-        20 => println("z is 20"),
-        _ => println("z is neither 10 nor 20"),
-    }
+fn main(){
+    hello();
 }

@@ -1,0 +1,18 @@
+struct MyBox<T> {
+    value: T;
+}
+
+enum MyOption<T> {
+    MySome(T),
+    MyNone
+}
+
+impl<T> MyBox<T> {
+    fn get(self: ^MyBox<T>) -> T {
+        return self^.value;
+    }
+}
+
+fn wrap<T>(val: T) -> MyBox<T> {
+    return val;
+}

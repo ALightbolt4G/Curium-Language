@@ -2,7 +2,7 @@
 
 This example demonstrates a minimal full-stack setup:
 
-- **Backend**: `src/main.cm` starts the CM HTTP server and serves `public_html/`.
+- **Backend**: `src/main.curium` starts the CM HTTP server and serves `public_html/`.
 - **Frontend**: `public_html/` contains a small calculator SPA.
 
 ### Run
@@ -19,7 +19,7 @@ cmake --build build --config Release
 2. Compile and run the example:
 
 ```
-./cm.exe run examples/calculator_spa/src/main.cm -o calc_app
+./cm.exe run examples/calculator_spa/src/main.curium -o calc_app
 ```
 
 Then open:

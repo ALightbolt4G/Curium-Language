@@ -1,107 +1,87 @@
-# 📘 CM Language Guide (v2-SPEC)
+# 🚀 Getting Started with Curium
 
-Welcome to the definitive guide for the **CM Language**. This document covers everything from basic syntax to advanced features.
+Curium is a powerful, expressive language that brings modern ergonomic features like memory safety and dynamic operators to the world of performance-critical software.
 
-## 🏁 Basics
+---
 
-### Variables
-CM distinguishes between **immutable** (`let`) and **mutable** (`mut`) variables.
+## 🏗️ Step 1: Installation
 
-```cm
-let x = 10;      // Immutable: cannot be changed
-mut y = 20;      // Mutable: can be reassigned
-y = y + 5;       // Correct: y is now 25
-```
+Curium depends on a C99-compliant compiler (MinGW, GCC, or Clang) and CMake for building project files.
 
-### Types
-CM is statically typed but supports powerful type inference. Common types include:
-- `int`, `float`, `string`, `bool`, `void`
-- `array<T>`, `slice<T>`, `map<K, V>`
-- `?T` (Option types), `Result<T, E>` (Error types)
+### Windows (recommended)
+1. Install [MinGW-w64](https://www.mingw-v64.org/) and add the `bin` folder to your PATH.
+2. Install [CMake](https://cmake.org/download/).
+3. Clone or download the Curium project and navigate to it in your terminal.
+4. Run the installer script or build the project from source:
+   ```powershell
+   cmake -B build
+   cmake --build build
+   ```
+5. Add the `build/` folder to your PATH to use the `curium` command globally.
 
-## 🎛️ Control Flow
+---
 
-### If-Else
-CM uses standard conditional branching.
+## 📝 Step 2: Your First Project
 
-```cm
-if (z > 10) {
-    println("z is greater than 10");
-} else {
-    println("z is small");
-}
-```
+Let's create a "Hello World" application.
 
-### While Loops
-Iterate based on a condition. (Note: `for` loops in v2 translate to `while` internally).
-
-```cm
-mut i = 0;
-while (i < 10) {
-    println(i);
-    i = i + 1;
-}
-```
-
-### Match (Pattern Matching)
-Powerful branching based on a variable's value. Supports a catch-all `_` arm.
-
-```cm
-match (z) {
-    10 => println("Found 10"),
-    20 => println("Found 20"),
-    _  => println("Found something else"),
-}
-```
-
-## 🏗️ Structure
-
-### Functions
-Declare reusable logic blocks with `fn`.
-
-```cm
-fn add(a: int, b: int) -> int {
-    return a + b;
-}
-```
-
-### Structs and Impls
-Group data and define methods.
-
-```cm
-struct Point {
-    x: int;
-    y: int;
-}
-
-impl Point {
-    fn print_coords(p: Point) {
-        println("Point is at:");
-        println(p.x);
-        println(p.y);
+1.  Initialize a new project:
+    ```bash
+    curium init my_app
+    cd my_app
+    ```
+2.  Open `src/main.cm` and write:
+    ```cm
+    fn main() {
+        println("Hello, Curium!");
     }
-}
+    ```
+3.  Run the project:
+    ```bash
+    curium run
+    ```
+
+---
+
+## 🎨 Step 3: Key Features to Explore
+
+### 1. Variables and Types
+Curium uses `let` for immutable variables and `mut` for mutable ones.
+```cm
+let x = 10;
+mut y = 20;
+y = 30; // Correct
+x = 10; // Error: x is immutable
 ```
 
-## 🪄 Special Features
-
-### The `println` Macro
-The `println` function is **type-agnostic**. It automatically identifies whether its argument is an `int`, `float`, `string`, or reference-counted object and prints it correctly.
-
+### 2. Dynamic Operators (`dyn`)
+Define custom operator logic that can be changed at runtime.
 ```cm
-println("Hello!"); // Prints string
-println(42);       // Prints int
-println(3.14);     // Prints float
+mut op = "+";
+dyn op in (
+    "+" => { return x + y; },
+    "avg" => { return (x + y) / 2.0; }
+) dyn($) { return 0; };
 ```
 
-### C-Polyglot Blocks
-Embed raw C code directly for low-level optimizations.
-
+### 3. Safety First (`^` and `?`)
+Curium provides safe pointers and optional types to prevent null-pointer exceptions and out-of-bounds access.
 ```cm
-c {
-    printf("Directly from C!\n");
+mut head: ^Node = ^node; // Safe pointer
+let val: int = res?;   // Error-propagating unwrap
+```
+
+### 4. Memory Model (Reactors)
+Choose between performance and convenience.
+```cm
+reactor arena(1024) {
+    // Bulk allocate and free instantly
 }
 ```
 
 ---
-*✨ CM Language: The ergonomic power of C.*
+
+## 📚 Next Steps
+- Read the [Syntax Reference](SYNTAX_REFERENCE.md) for a full index of features.
+- Explore the [Standard Library](PROJECT_GUIDE.md) to build more complex apps.
+- Join the community and start building amazing frameworks!

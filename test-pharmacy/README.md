@@ -6,19 +6,19 @@ A CM (C Managed) project with C#-like syntax.
 
 ### Build
 ```bash
-cm build src/main.cm
+cm build src/main.curium
 ```
 
 ### Run
 ```bash
-cm run src/main.cm
+cm run src/main.curium
 ```
 
 ## Project Structure
 
 ```
 src/
-  main.cm          # Entry point
+  main.curium          # Entry point
   models/            # Data models
   services/          # Business logic
 tests/               # Test files

@@ -1,46 +1,71 @@
-# 📟 CM CLI Reference (v2-SPEC)
+# 🛠️ Curium CLI Reference (v4.0)
 
-The `cm` command is the central tool for interacting with the CM language. It handles building, running, and managing your projects.
+Curium provides a powerful command-line interface for managing, building, and running projects.
 
-## 🚀 Basic Usage
+## 🚀 Basic Commands
 
-```bash
-cm <command> [options] <entry.cm>
-```
+### **curium init <project-name>**
+Initializes a new Curium project in a directory with the given name.
+- Creates a `src/` directory and a `curium.json` manifest.
 
-### `cm build <entry.cm>`
-Compiles your CM program and generates an executable named `a.exe` (Windows) or `a.out` (Unix) by default.
+### **curium build [entry.cm]**
+Compiles the specified entry file (or searches for `main.cm` in `src/`).
+- **Options**:
+  - `-o <path>`: Specify output binary path.
+  - `--emit-c`: Only transpile to C, don't compile.
 
-- `-o output` — Specify a custom filename for the resulting executable.
-- `cm build main.cm -o demo.exe`
+### **curium run [entry.cm]**
+Builds and immediately executes the Curium program.
+- **Example**: `curium run my_app.cm`
 
-### `cm run <entry.cm>`
-Builds and executes your CM program in one step. It automatically handles the intermediate C transpilation and final native compilation.
+### **curium check [file.cm]**
+Performs a fast type-check without generating C code or binaries. Use this for quick validation during development.
 
-- `cm run main.cm`
-
-### `cm emitc <entry.cm>`
-Generates the intermediate C code for your CM program without calling the native compiler. Use this to inspect the transpiled output.
-
-- `-o main.c` — Specify the output C filename.
-
-## 📦 Package Management
-
-CM features a modern package manager to handle project dependencies.
-
-| Command | Description |
-|---|---|
-| `cm packages init` | Initialize a new project in the current folder. |
-| `cm packages install <name>` | Download and install a package. |
-| `cm packages list` | View installed project dependencies. |
-| `cm packages update` | Check for updates to installed packages. |
-
-## 🛠️ Utility Commands
-
-- **`cm highlight <file>`**: Generate colorized terminal output for a CM file.
-- **`cm new <name>`**: Scaffold a new CM project with a standard folder structure.
-- **`cm --version`**: Display the current CM compiler version and build info.
-- **`cm --info`**: Show detailed information about the compiler and local environment.
+### **curium doctor [project-dir]**
+Diagnoses project health, checking for missing dependencies, incorrect manifest settings, or environment issues.
 
 ---
-*✨ CM CLI: Simplifying high-performance development.*
+
+## 📦 Package Manager
+
+The Curium package manager is built directly into the CLI.
+
+### **curium packages init [<name>]**
+Initializes a package manifest for a library project.
+
+### **curium packages install [name@version]**
+Installs a remote package from the official Curium registry.
+- **Example**: `curium packages install http@1.0.1`
+
+### **curium packages remove <name>**
+Removes an installed package from the project.
+
+### **curium packages list**
+Displays all installed packages and their versions.
+
+---
+
+## 🔧 Maintenance & Installation
+
+### **curium fmt [file.cm]**
+Automatically formats your Curium source code according to the standard style guide.
+
+### **curium test**
+Discovers and runs all `.cm` files in the `tests/` directory.
+
+### **curium install [-o path]**
+Installs the compiled binary to your system's global bin directory.
+
+### **curium emitc <entry.cm>**
+A specialized command to only output the transpiled C99 source code. Useful for cross-compiling or auditing.
+
+---
+
+## 🏴 Flags
+
+| Flag | Name | Description |
+|---|---|---|
+| `-o <path>` | Output | Specifies the output file path. |
+| `--emit-c` | Emit C | Skip C compilation step. |
+| `--stat` | Statistics | Show detailed memory and GC stats after execution. |
+| `-v`, `--version` | Version | Display current Curium version. |

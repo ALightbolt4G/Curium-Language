@@ -1,0 +1,12 @@
+fn main() {
+    let a = 5; 
+    let b = 3; 
+
+    c {
+        // Bitwise logic through polyglot
+        int bit_and = curium_a & curium_b;
+        int bit_or = curium_a | curium_b;
+        printf("a & b = %d\n", bit_and);
+        printf("a | b = %d\n", bit_or);
+    }
+}

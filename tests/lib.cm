@@ -1,0 +1,16 @@
+pub struct MathResult {
+    val: int;
+    is_even: bool;
+}
+
+pub fn create_result(v: int) -> MathResult {
+    let res: MathResult = MathResult { val: v, is_even: v % 2 == 0 };
+    return res;
+}
+
+pub fn divide(a: int, b: int) -> Result<int, string> {
+    if (b == 0) {
+        return Result::Err("Cannot divide by zero");
+    }
+    return Result::Ok(a / b);
+}

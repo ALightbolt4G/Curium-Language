@@ -1,0 +1,9 @@
+fn main() {
+    println("Calling C code from Curium...");
+    c {
+        #include <math.h>
+        double val = sqrt(16.0);
+        printf("Value from C: %f\n", val);
+    }
+    println("Back to Curium.");
+}

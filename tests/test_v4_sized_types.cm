@@ -1,0 +1,13 @@
+fn main() {
+    // v4.0: Sized numeric types
+    let byte: u8 = 255;
+    let short: i16 = -1000;
+    let counter: i32 = 42;
+    let big: i64 = 9999999;
+    let unsigned_big: u64 = 18446744073709551615;
+    let precise: f32 = 3.14;
+    let double_precise: f64 = 2.718281828;
+    let size: usize = 1024;
+
+    print("sized types test");
+}

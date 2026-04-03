@@ -1,0 +1,16 @@
+fn main() {
+    mut x: float = 10.0;
+    mut y: float = 20.0;
+    mut action: string = "add";
+
+    dyn action in (
+        "add" => { return x + y; },
+        "mul" => { return x * y; }
+    ) dyn($) {
+        return 0.0;
+    };
+
+    let result = x action y;
+    print("Dynamic calc: ");
+    println(result);
+}

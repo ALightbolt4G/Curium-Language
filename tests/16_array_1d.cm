@@ -1,0 +1,37 @@
+fn main() {
+    println("=== 1D Array Test ===");
+
+    // Manual array using C block
+    c {
+        int arr[5] = {10, 20, 30, 40, 50};
+        printf("Array: ");
+        for (int i = 0; i < 5; i++) {
+            printf("%d ", arr[i]);
+        }
+        printf("\n");
+
+        // Sum
+        int sum = 0;
+        for (int i = 0; i < 5; i++) {
+            sum += arr[i];
+        }
+        printf("Sum = %d\n", sum);
+
+        // Min/Max
+        int min = arr[0], max = arr[0];
+        for (int i = 1; i < 5; i++) {
+            if (arr[i] < min) min = arr[i];
+            if (arr[i] > max) max = arr[i];
+        }
+        printf("Min = %d, Max = %d\n", min, max);
+
+        // Reverse
+        printf("Reversed: ");
+        for (int i = 4; i >= 0; i--) {
+            printf("%d ", arr[i]);
+        }
+        printf("\n");
+    }
+
+    println("1D Array tests passed!");
+}

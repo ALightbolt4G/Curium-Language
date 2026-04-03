@@ -1,0 +1,85 @@
+// Curium Standard Library — Sys
+// import "std/sys.cm";
+//
+// Provides: sys_argc, sys_argv, sys_version, sys_platform, sys_arch, sys_endianness
+
+pub fn sys_version() -> string {
+    c {
+        return curium_string_new(CURIUM_VERSION);
+    }
+}
+
+pub fn sys_platform() -> string {
+    c {
+        #ifdef _WIN32
+            return curium_string_new("win32");
+        #elif __APPLE__
+            return curium_string_new("darwin");
+        #elif __linux__
+            return curium_string_new("linux");
+        #elif __FreeBSD__
+            return curium_string_new("freebsd");
+        #else
+            return curium_string_new("unknown");
+        #endif
+    }
+}
+
+pub fn sys_arch() -> string {
+    c {
+        #if defined(__x86_64__) || defined(_M_X64)
+            return curium_string_new("x86_64");
+        #elif defined(__i386__) || defined(_M_IX86)
+            return curium_string_new("x86");
+        #elif defined(__aarch64__) || defined(_M_ARM64)
+            return curium_string_new("arm64");
+        #elif defined(__arm__) || defined(_M_ARM)
+            return curium_string_new("arm");
+        #else
+            return curium_string_new("unknown");
+        #endif
+    }
+}
+
+pub fn sys_endianness() -> string {
+    c {
+        unsigned int curium___x = 1;
+        char* curium___c = (char*)&curium___x;
+        if (*curium___c) return curium_string_new("little");
+        return curium_string_new("big");
+    }
+}
+
+pub fn sys_compiler() -> string {
+    c {
+        #if defined(__clang__)
+            return curium_string_new("clang");
+        #elif defined(__GNUC__)
+            return curium_string_new("gcc");
+        #elif defined(_MSC_VER)
+            return curium_string_new("msvc");
+        #else
+            return curium_string_new("unknown");
+        #endif
+    }
+}
+
+pub fn sys_sizeof_ptr() -> int {
+    c {
+        return (int)sizeof(void*);
+    }
+}
+
+pub fn sys_max_int() -> int {
+    c {
+        #include <limits.h>
+        return INT_MAX;
+    }
+}
+
+pub fn sys_min_int() -> int {
+    c {
+        #include <limits.h>
+        return INT_MIN;
+    }
+}

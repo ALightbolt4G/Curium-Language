@@ -1,9 +1,9 @@
 {
-  "name": "cm-language",
-  "displayName": "CM Language Support",
-  "description": "Syntax highlighting and language support for CM",
-  "version": "5.0.0",
-  "publisher": "cm-team",
+  "name": "curium-language",
+  "displayName": "Curium Language Support",
+  "description": "Syntax highlighting and language support for Curium (.cm)",
+  "version": "6.0.0",
+  "publisher": "curium-team",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -13,17 +13,17 @@
   "contributes": {
     "languages": [
       {
-        "id": "cm",
-        "aliases": ["CM"],
+        "id": "curium",
+        "aliases": ["Curium", "curium", "CM", "cm"],
         "extensions": [".cm"],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "cm",
-        "scopeName": "source.cm",
-        "path": "./syntaxes/cm.tmLanguage.json"
+        "language": "curium",
+        "scopeName": "source.curium",
+        "path": "./syntaxes/curium.tmLanguage.json"
       }
     ]
   }

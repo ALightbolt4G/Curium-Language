@@ -1,0 +1,5 @@
+fn main() {
+    let x = 42;
+    let p: ^int = 0; // safe pointer semantics based on v3
+    println("Pointer declared.");
+}

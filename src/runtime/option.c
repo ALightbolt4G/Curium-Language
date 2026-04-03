@@ -1,5 +1,5 @@
-#include "cm/option.h"
-#include "cm/memory.h"
+#include "curium/option.h"
+#include "curium/memory.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -8,26 +8,26 @@
  * ==========================================================================*/
 
 /* Create None option */
-cm_option_t cm_option_none(void) {
-    cm_option_t opt = CM_OPTION_NONE_INIT;
+curium_option_t curium_option_none(void) {
+    curium_option_t opt = CURIUM_OPTION_NONE_INIT;
     return opt;
 }
 
 /* Create Some option */
-cm_option_t cm_option_some(const void* value, size_t value_size) {
+curium_option_t curium_option_some(const void* value, size_t value_size) {
     if (!value || value_size == 0) {
-        return cm_option_none();
+        return curium_option_none();
     }
     
-    void* value_copy = cm_alloc(value_size, "option_value");
+    void* value_copy = curium_alloc(value_size, "option_value");
     if (!value_copy) {
-        return cm_option_none();
+        return curium_option_none();
     }
     
     memcpy(value_copy, value, value_size);
     
-    cm_option_t opt;
-    opt.kind = CM_OPTION_SOME;
+    curium_option_t opt;
+    opt.kind = CURIUM_OPTION_SOME;
     opt.value = value_copy;
     opt.value_size = value_size;
     
@@ -35,26 +35,26 @@ cm_option_t cm_option_some(const void* value, size_t value_size) {
 }
 
 /* Check if option is Some */
-int cm_option_is_some(const cm_option_t* opt) {
-    return opt && opt->kind == CM_OPTION_SOME;
+int curium_option_is_some(const curium_option_t* opt) {
+    return opt && opt->kind == CURIUM_OPTION_SOME;
 }
 
 /* Check if option is None */
-int cm_option_is_none(const cm_option_t* opt) {
-    return !opt || opt->kind == CM_OPTION_NONE;
+int curium_option_is_none(const curium_option_t* opt) {
+    return !opt || opt->kind == CURIUM_OPTION_NONE;
 }
 
 /* Get value from Some option (returns NULL if None) */
-void* cm_option_unwrap(const cm_option_t* opt) {
-    if (cm_option_is_none(opt)) {
+void* curium_option_unwrap(const curium_option_t* opt) {
+    if (curium_option_is_none(opt)) {
         return NULL;
     }
     return opt->value;
 }
 
 /* Get value from Some option or return default if None */
-void* cm_option_unwrap_or(const cm_option_t* opt, const void* default_value, void* output, size_t output_size) {
-    if (cm_option_is_some(opt)) {
+void* curium_option_unwrap_or(const curium_option_t* opt, const void* default_value, void* output, size_t output_size) {
+    if (curium_option_is_some(opt)) {
         if (output && opt->value) {
             memcpy(output, opt->value, output_size < opt->value_size ? output_size : opt->value_size);
         }
@@ -68,40 +68,40 @@ void* cm_option_unwrap_or(const cm_option_t* opt, const void* default_value, voi
 }
 
 /* Map function over Some value */
-cm_option_t cm_option_map(const cm_option_t* opt, void* (*mapper)(const void*), size_t result_size) {
-    if (cm_option_is_none(opt) || !mapper) {
-        return cm_option_none();
+curium_option_t curium_option_map(const curium_option_t* opt, void* (*mapper)(const void*), size_t result_size) {
+    if (curium_option_is_none(opt) || !mapper) {
+        return curium_option_none();
     }
     
     void* result = mapper(opt->value);
     if (!result) {
-        return cm_option_none();
+        return curium_option_none();
     }
     
-    cm_option_t mapped = cm_option_some(result, result_size);
-    cm_free(result);
+    curium_option_t mapped = curium_option_some(result, result_size);
+    curium_free(result);
     
     return mapped;
 }
 
 /* Free option value */
-void cm_option_free(cm_option_t* opt) {
+void curium_option_free(curium_option_t* opt) {
     if (!opt) return;
     
-    if (opt->kind == CM_OPTION_SOME && opt->value) {
-        cm_free(opt->value);
+    if (opt->kind == CURIUM_OPTION_SOME && opt->value) {
+        curium_free(opt->value);
         opt->value = NULL;
     }
     
-    opt->kind = CM_OPTION_NONE;
+    opt->kind = CURIUM_OPTION_NONE;
     opt->value_size = 0;
 }
 
 /* Clone option */
-cm_option_t cm_option_clone(const cm_option_t* opt) {
-    if (cm_option_is_none(opt)) {
-        return cm_option_none();
+curium_option_t curium_option_clone(const curium_option_t* opt) {
+    if (curium_option_is_none(opt)) {
+        return curium_option_none();
     }
     
-    return cm_option_some(opt->value, opt->value_size);
+    return curium_option_some(opt->value, opt->value_size);
 }

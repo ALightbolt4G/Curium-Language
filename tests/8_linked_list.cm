@@ -1,0 +1,16 @@
+struct Node {
+    val: int;
+}
+
+fn main() {
+    mut n1: Node;
+    n1.val = 10;
+    
+    mut n2: Node;
+    n2.val = 20;
+    
+    print("List nodes created: ");
+    print(n1.val);
+    print(" and ");
+    println(n2.val);
+}

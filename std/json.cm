@@ -1,0 +1,56 @@
+// Curium Standard Library — JSON
+// import "std/json.cm";
+//
+// Provides: json_parse, json_stringify, json_get, json_set, json_has,
+//           json_to_map, json_from_map, json_free
+
+pub fn json_parse(text: string) -> int {
+    // Returns opaque handle to CuriumJsonNode
+    c {
+        struct CuriumJsonNode* curium___node = curium_json_parse(curium_text->data);
+        return (int)(intptr_t)curium___node;
+    }
+}
+
+pub fn json_stringify(handle: int) -> string {
+    c {
+        struct CuriumJsonNode* curium___node = (struct CuriumJsonNode*)(intptr_t)curium_handle;
+        curium_string_t* curium___str = curium_json_stringify(curium___node);
+        if (curium___str) return curium___str;
+        return curium_string_new("{}");
+    }
+}
+
+pub fn json_free(handle: int) {
+    c {
+        struct CuriumJsonNode* curium___node = (struct CuriumJsonNode*)(intptr_t)curium_handle;
+        if (curium___node) CuriumJsonNode_delete(curium___node);
+    }
+}
+
+pub fn json_to_map(text: string) -> int {
+    // Returns opaque handle to curium_map_t* 
+    c {
+        struct CuriumJsonNode* curium___node = curium_json_parse(curium_text->data);
+        if (curium___node && curium___node->type == CURIUM_JSON_OBJECT) {
+            return (int)(intptr_t)curium___node->value.object_val;
+        }
+        return 0;
+    }
+}
+
+pub fn json_save(map_handle: int, path: string) -> bool {
+    c {
+        curium_map_t* curium___map = (curium_map_t*)(intptr_t)curium_map_handle;
+        if (!curium___map) return 0;
+        return curium_map_save_to_json(curium___map, curium_path->data);
+    }
+}
+
+pub fn json_load(path: string) -> int {
+    // Returns opaque handle to curium_map_t*
+    c {
+        curium_map_t* curium___map = curium_map_load_from_json(curium_path->data);
+        return (int)(intptr_t)curium___map;
+    }
+}

@@ -1,4 +1,4 @@
-// json_parser.cm - Simple JSON parser in CM
+// json_parser.curium - Simple JSON parser in CM
 // Usage: json_parse('{"name": "alice", "age": 25}')
 
 require("public_html/");

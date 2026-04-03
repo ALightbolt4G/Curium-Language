@@ -1,10 +1,10 @@
-#include "cm/packages.h"
-#include "cm/file.h"
-#include "cm/json.h"
-#include "cm/map.h"
-#include "cm/memory.h"
-#include "cm/error.h"
-#include "cm/cmd.h"
+#include "curium/packages.h"
+#include "curium/file.h"
+#include "curium/json.h"
+#include "curium/map.h"
+#include "curium/memory.h"
+#include "curium/error.h"
+#include "curium/cmd.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +23,7 @@
  * Utility Functions
  * ========================================================================== */
 
-cm_string_t* cm_packages_expand_path(const char* path) {
+curium_string_t* curium_packages_expand_path(const char* path) {
     if (!path) return NULL;
     
     /* Handle tilde expansion for home directory */
@@ -31,13 +31,13 @@ cm_string_t* cm_packages_expand_path(const char* path) {
         const char* home = getenv("HOME");
         if (!home) home = getenv("USERPROFILE");
         if (home) {
-            return cm_string_format("%s%s", home, path + 1);
+            return curium_string_format("%s%s", home, path + 1);
         }
     }
-    return cm_string_new(path);
+    return curium_string_new(path);
 }
 
-int cm_packages_ensure_dir(const char* path) {
+int curium_packages_ensure_dir(const char* path) {
     if (!path) return -1;
     
 #ifdef _WIN32
@@ -47,148 +47,148 @@ int cm_packages_ensure_dir(const char* path) {
 #endif
 }
 
-cm_string_t* cm_packages_get_cache_dir(void) {
+curium_string_t* curium_packages_get_cache_dir(void) {
     const char* home = getenv("HOME");
     if (!home) home = getenv("USERPROFILE");
     if (!home) home = ".";
     
-    return cm_string_format("%s/.cm/packages", home);
+    return curium_string_format("%s/.cm/packages", home);
 }
 
 /* ============================================================================
  * Manifest Operations
  * ========================================================================== */
 
-cm_package_manifest_t* cm_packages_manifest_new(void) {
-    cm_package_manifest_t* manifest = (cm_package_manifest_t*)cm_alloc(sizeof(cm_package_manifest_t), "cm_package_manifest");
+curium_package_manifest_t* curium_packages_manifest_new(void) {
+    curium_package_manifest_t* manifest = (curium_package_manifest_t*)curium_alloc(sizeof(curium_package_manifest_t), "curium_package_manifest");
     if (!manifest) return NULL;
     
     memset(manifest, 0, sizeof(*manifest));
-    manifest->dependencies = cm_map_new();
-    manifest->dev_dependencies = cm_map_new();
+    manifest->dependencies = curium_map_new();
+    manifest->dev_dependencies = curium_map_new();
     
     return manifest;
 }
 
-void cm_packages_manifest_free(cm_package_manifest_t* manifest) {
+void curium_packages_manifest_free(curium_package_manifest_t* manifest) {
     if (!manifest) return;
     
-    if (manifest->name) cm_string_free(manifest->name);
-    if (manifest->version) cm_string_free(manifest->version);
-    if (manifest->description) cm_string_free(manifest->description);
-    if (manifest->main) cm_string_free(manifest->main);
-    if (manifest->registry) cm_string_free(manifest->registry);
-    if (manifest->dependencies) cm_map_free(manifest->dependencies);
-    if (manifest->dev_dependencies) cm_map_free(manifest->dev_dependencies);
+    if (manifest->name) curium_string_free(manifest->name);
+    if (manifest->version) curium_string_free(manifest->version);
+    if (manifest->description) curium_string_free(manifest->description);
+    if (manifest->main) curium_string_free(manifest->main);
+    if (manifest->registry) curium_string_free(manifest->registry);
+    if (manifest->dependencies) curium_map_free(manifest->dependencies);
+    if (manifest->dev_dependencies) curium_map_free(manifest->dev_dependencies);
     
-    cm_free(manifest);
+    curium_free(manifest);
 }
 
-cm_package_manifest_t* cm_packages_load_manifest(const char* path) {
+curium_package_manifest_t* curium_packages_load_manifest(const char* path) {
     if (!path) return NULL;
     
-    cm_string_t* content = cm_file_read(path);
+    curium_string_t* content = curium_file_read(path);
     if (!content) {
-        cm_error_set(CM_ERROR_IO, "Failed to read package manifest");
+        curium_error_set(CURIUM_ERROR_IO, "Failed to read package manifest");
         return NULL;
     }
     
-    struct CMJsonNode* root = cm_json_parse(content->data);
-    cm_string_free(content);
+    struct CuriumJsonNode* root = curium_json_parse(content->data);
+    curium_string_free(content);
     
-    if (!root || root->type != CM_JSON_OBJECT) {
-        cm_error_set(CM_ERROR_PARSE, "Invalid package manifest format");
-        if (root) CMJsonNode_delete(root);
+    if (!root || root->type != CURIUM_JSON_OBJECT) {
+        curium_error_set(CURIUM_ERROR_PARSE, "Invalid package manifest format");
+        if (root) CuriumJsonNode_delete(root);
         return NULL;
     }
     
-    cm_package_manifest_t* manifest = cm_packages_manifest_new();
+    curium_package_manifest_t* manifest = curium_packages_manifest_new();
     if (!manifest) {
-        CMJsonNode_delete(root);
+        CuriumJsonNode_delete(root);
         return NULL;
     }
     
-    cm_map_t* obj = root->value.object_val;
+    curium_map_t* obj = root->value.object_val;
     
     /* Parse basic fields */
-    struct CMJsonNode** node;
+    struct CuriumJsonNode** node;
     
-    node = (struct CMJsonNode**)cm_map_get(obj, "name");
-    if (node && (*node)->type == CM_JSON_STRING) {
-        manifest->name = cm_string_new((*node)->value.string_val->data);
+    node = (struct CuriumJsonNode**)curium_map_get(obj, "name");
+    if (node && (*node)->type == CURIUM_JSON_STRING) {
+        manifest->name = curium_string_new((*node)->value.string_val->data);
     }
     
-    node = (struct CMJsonNode**)cm_map_get(obj, "version");
-    if (node && (*node)->type == CM_JSON_STRING) {
-        manifest->version = cm_string_new((*node)->value.string_val->data);
+    node = (struct CuriumJsonNode**)curium_map_get(obj, "version");
+    if (node && (*node)->type == CURIUM_JSON_STRING) {
+        manifest->version = curium_string_new((*node)->value.string_val->data);
     }
     
-    node = (struct CMJsonNode**)cm_map_get(obj, "description");
-    if (node && (*node)->type == CM_JSON_STRING) {
-        manifest->description = cm_string_new((*node)->value.string_val->data);
+    node = (struct CuriumJsonNode**)curium_map_get(obj, "description");
+    if (node && (*node)->type == CURIUM_JSON_STRING) {
+        manifest->description = curium_string_new((*node)->value.string_val->data);
     }
     
-    node = (struct CMJsonNode**)cm_map_get(obj, "main");
-    if (node && (*node)->type == CM_JSON_STRING) {
-        manifest->main = cm_string_new((*node)->value.string_val->data);
+    node = (struct CuriumJsonNode**)curium_map_get(obj, "main");
+    if (node && (*node)->type == CURIUM_JSON_STRING) {
+        manifest->main = curium_string_new((*node)->value.string_val->data);
     }
     
-    node = (struct CMJsonNode**)cm_map_get(obj, "registry");
-    if (node && (*node)->type == CM_JSON_STRING) {
-        manifest->registry = cm_string_new((*node)->value.string_val->data);
+    node = (struct CuriumJsonNode**)curium_map_get(obj, "registry");
+    if (node && (*node)->type == CURIUM_JSON_STRING) {
+        manifest->registry = curium_string_new((*node)->value.string_val->data);
     }
     
     /* Parse dependencies */
-    node = (struct CMJsonNode**)cm_map_get(obj, "dependencies");
-    if (node && (*node)->type == CM_JSON_OBJECT) {
-        cm_map_t* deps = (*node)->value.object_val;
+    node = (struct CuriumJsonNode**)curium_map_get(obj, "dependencies");
+    if (node && (*node)->type == CURIUM_JSON_OBJECT) {
+        curium_map_t* deps = (*node)->value.object_val;
         (void)deps; /* TODO: Implement dependency parsing */
         /* Iterate through dependencies */
-        /* Note: cm_map iteration would need to be implemented */
+        /* Note: curium_map iteration would need to be implemented */
     }
     
-    CMJsonNode_delete(root);
+    CuriumJsonNode_delete(root);
     return manifest;
 }
 
-int cm_packages_save_manifest(const char* path, cm_package_manifest_t* manifest) {
+int curium_packages_save_manifest(const char* path, curium_package_manifest_t* manifest) {
     if (!path || !manifest) return -1;
     
-    cm_string_t* json = cm_string_new("{\n");
+    curium_string_t* json = curium_string_new("{\n");
     
-    /* Build JSON manually since we don't have cm_string_append_format */
-    cm_string_append(json, "  \"name\": \"");
-    cm_string_append(json, manifest->name ? manifest->name->data : "unknown");
-    cm_string_append(json, "\",\n");
+    /* Build JSON manually since we don't have curium_string_append_format */
+    curium_string_append(json, "  \"name\": \"");
+    curium_string_append(json, manifest->name ? manifest->name->data : "unknown");
+    curium_string_append(json, "\",\n");
     
-    cm_string_append(json, "  \"version\": \"");
-    cm_string_append(json, manifest->version ? manifest->version->data : "1.0.0");
-    cm_string_append(json, "\",\n");
+    curium_string_append(json, "  \"version\": \"");
+    curium_string_append(json, manifest->version ? manifest->version->data : "1.0.0");
+    curium_string_append(json, "\",\n");
     
-    cm_string_append(json, "  \"description\": \"");
-    cm_string_append(json, manifest->description ? manifest->description->data : "");
-    cm_string_append(json, "\",\n");
+    curium_string_append(json, "  \"description\": \"");
+    curium_string_append(json, manifest->description ? manifest->description->data : "");
+    curium_string_append(json, "\",\n");
     
-    cm_string_append(json, "  \"main\": \"");
-    cm_string_append(json, manifest->main ? manifest->main->data : "src/main.cm");
-    cm_string_append(json, "\",\n");
+    curium_string_append(json, "  \"main\": \"");
+    curium_string_append(json, manifest->main ? manifest->main->data : "src/main.cm");
+    curium_string_append(json, "\",\n");
     
-    cm_string_append(json, "  \"registry\": \"");
-    cm_string_append(json, manifest->registry ? manifest->registry->data : CM_REGISTRY_URL);
-    cm_string_append(json, "\",\n");
+    curium_string_append(json, "  \"registry\": \"");
+    curium_string_append(json, manifest->registry ? manifest->registry->data : CURIUM_REGISTRY_URL);
+    curium_string_append(json, "\",\n");
     
     /* Dependencies */
-    cm_string_append(json, "  \"dependencies\": {\n");
-    cm_string_append(json, "  },\n");
+    curium_string_append(json, "  \"dependencies\": {\n");
+    curium_string_append(json, "  },\n");
     
     /* Dev dependencies */
-    cm_string_append(json, "  \"devDependencies\": {\n");
-    cm_string_append(json, "  }\n");
+    curium_string_append(json, "  \"devDependencies\": {\n");
+    curium_string_append(json, "  }\n");
     
-    cm_string_append(json, "}\n");
+    curium_string_append(json, "}\n");
     
-    int result = cm_file_write(path, json->data);
-    cm_string_free(json);
+    int result = curium_file_write(path, json->data);
+    curium_string_free(json);
     
     return result;
 }
@@ -197,51 +197,51 @@ int cm_packages_save_manifest(const char* path, cm_package_manifest_t* manifest)
  * Package Manager Context
  * ========================================================================== */
 
-cm_package_manager_t* cm_packages_init(const char* project_root) {
+curium_package_manager_t* curium_packages_init(const char* project_root) {
     if (!project_root) return NULL;
     
-    cm_package_manager_t* pm = (cm_package_manager_t*)cm_alloc(sizeof(cm_package_manager_t), "cm_package_manager");
+    curium_package_manager_t* pm = (curium_package_manager_t*)curium_alloc(sizeof(curium_package_manager_t), "curium_package_manager");
     if (!pm) return NULL;
     
     memset(pm, 0, sizeof(*pm));
-    pm->project_root = cm_string_new(project_root);
-    pm->packages_dir = cm_packages_get_cache_dir();
-    pm->registry_url = cm_string_new(CM_REGISTRY_URL);
+    pm->project_root = curium_string_new(project_root);
+    pm->packages_dir = curium_packages_get_cache_dir();
+    pm->registry_url = curium_string_new(CURIUM_REGISTRY_URL);
     
     /* Ensure packages directory exists */
-    cm_packages_ensure_dir(pm->packages_dir->data);
+    curium_packages_ensure_dir(pm->packages_dir->data);
     
     /* Load manifest if exists */
     char manifest_path[1024];
-    snprintf(manifest_path, sizeof(manifest_path), "%s/%s", project_root, CM_PACKAGE_FILE);
-    pm->manifest = cm_packages_load_manifest(manifest_path);
+    snprintf(manifest_path, sizeof(manifest_path), "%s/%s", project_root, CURIUM_PACKAGE_FILE);
+    pm->manifest = curium_packages_load_manifest(manifest_path);
     
     return pm;
 }
 
-void cm_packages_free(cm_package_manager_t* pm) {
+void curium_packages_free(curium_package_manager_t* pm) {
     if (!pm) return;
     
-    if (pm->project_root) cm_string_free(pm->project_root);
-    if (pm->packages_dir) cm_string_free(pm->packages_dir);
-    if (pm->registry_url) cm_string_free(pm->registry_url);
-    if (pm->manifest) cm_packages_manifest_free(pm->manifest);
+    if (pm->project_root) curium_string_free(pm->project_root);
+    if (pm->packages_dir) curium_string_free(pm->packages_dir);
+    if (pm->registry_url) curium_string_free(pm->registry_url);
+    if (pm->manifest) curium_packages_manifest_free(pm->manifest);
     
-    cm_free(pm);
+    curium_free(pm);
 }
 
 /* ============================================================================
  * CLI Commands
  * ========================================================================== */
 
-int cm_packages_cmd_init(const char* project_name) {
+int curium_packages_cmd_init(const char* project_name) {
     if (!project_name) {
         fprintf(stderr, "Error: Project name required\n");
         return -1;
     }
     
     /* Create project directory */
-    if (cm_packages_ensure_dir(project_name) != 0 && errno != EEXIST) {
+    if (curium_packages_ensure_dir(project_name) != 0 && errno != EEXIST) {
         fprintf(stderr, "Error: Failed to create project directory\n");
         return -1;
     }
@@ -249,52 +249,44 @@ int cm_packages_cmd_init(const char* project_name) {
     /* Create subdirectories */
     char path[1024];
     snprintf(path, sizeof(path), "%s/src", project_name);
-    cm_packages_ensure_dir(path);
+    curium_packages_ensure_dir(path);
     
     snprintf(path, sizeof(path), "%s/packages", project_name);
-    cm_packages_ensure_dir(path);
+    curium_packages_ensure_dir(path);
     
     /* Create default manifest */
-    cm_package_manifest_t* manifest = cm_packages_manifest_new();
+    curium_package_manifest_t* manifest = curium_packages_manifest_new();
     if (!manifest) return -1;
     
-    manifest->name = cm_string_new(project_name);
-    manifest->version = cm_string_new("1.0.0");
-    manifest->description = cm_string_format("CM project: %s", project_name);
-    manifest->main = cm_string_new("src/main.cm");
-    manifest->registry = cm_string_new(CM_REGISTRY_URL);
+    manifest->name = curium_string_new(project_name);
+    manifest->version = curium_string_new("1.0.0");
+    manifest->description = curium_string_format("CM project: %s", project_name);
+    manifest->main = curium_string_new("src/main.cm");
+    manifest->registry = curium_string_new(CURIUM_REGISTRY_URL);
     
-    snprintf(path, sizeof(path), "%s/%s", project_name, CM_PACKAGE_FILE);
-    int result = cm_packages_save_manifest(path, manifest);
+    snprintf(path, sizeof(path), "%s/%s", project_name, CURIUM_PACKAGE_FILE);
+    int result = curium_packages_save_manifest(path, manifest);
     
-    cm_packages_manifest_free(manifest);
+    curium_packages_manifest_free(manifest);
     
     /* Create default main.cm */
     snprintf(path, sizeof(path), "%s/src/main.cm", project_name);
-    cm_string_t* main_content = cm_string_new("// Main entry point for ");
-    cm_string_append(main_content, project_name);
-    cm_string_append(main_content, "\n"
-        "using System;\n"
-        "using Http;\n"
+    curium_string_t* main_content = curium_string_new("// Curium Project: ");
+    curium_string_append(main_content, project_name);
+    curium_string_append(main_content, "\n"
         "\n"
-        "namespace ");
-    cm_string_append(main_content, project_name);
-    cm_string_append(main_content, " {\n"
-        "    class Program {\n"
-        "        static async Task Main() {\n"
-        "            Console.WriteLine(\"Hello from ");
-    cm_string_append(main_content, project_name);
-    cm_string_append(main_content, "!\");\n"
-        "        }\n"
-        "    }\n"
+        "fn main() {\n"
+        "    print(\"Hello from ");
+    curium_string_append(main_content, project_name);
+    curium_string_append(main_content, "!\");\n"
         "}\n");
     
-    cm_file_write(path, main_content->data);
-    cm_string_free(main_content);
+    curium_file_write(path, main_content->data);
+    curium_string_free(main_content);
     
     if (result == 0) {
         printf("Initialized CM project '%s'\n", project_name);
-        printf("  - cm.json created\n");
+        printf("  - curium.json created\n");
         printf("  - src/main.cm created\n");
         printf("  - packages/ directory ready\n");
     }
@@ -302,23 +294,23 @@ int cm_packages_cmd_init(const char* project_name) {
     return result;
 }
 
-int cm_packages_cmd_install(const char* package_name, const char* version) {
+int curium_packages_cmd_install(const char* package_name, const char* version) {
     if (!package_name) {
         /* Install all dependencies from manifest */
-        cm_package_manager_t* pm = cm_packages_init(".");
+        curium_package_manager_t* pm = curium_packages_init(".");
         if (!pm) return -1;
         
-        int result = cm_packages_install_all(pm);
-        cm_packages_free(pm);
+        int result = curium_packages_install_all(pm);
+        curium_packages_free(pm);
         return result;
     }
     
     /* Install specific package */
-    cm_package_manager_t* pm = cm_packages_init(".");
+    curium_package_manager_t* pm = curium_packages_init(".");
     if (!pm) return -1;
     
-    int result = cm_packages_install(pm, package_name, version);
-    cm_packages_free(pm);
+    int result = curium_packages_install(pm, package_name, version);
+    curium_packages_free(pm);
     return result;
 }
 
@@ -326,7 +318,7 @@ int cm_packages_cmd_install(const char* package_name, const char* version) {
  * Package Installation
  * ========================================================================== */
 
-int cm_packages_install(cm_package_manager_t* pm, const char* package_name, const char* version) {
+int curium_packages_install(curium_package_manager_t* pm, const char* package_name, const char* version) {
     if (!pm || !package_name) return -1;
     
     printf("Installing %s", package_name);
@@ -347,7 +339,7 @@ int cm_packages_install(cm_package_manager_t* pm, const char* package_name, cons
     return 0;
 }
 
-int cm_packages_install_all(cm_package_manager_t* pm) {
+int curium_packages_install_all(curium_package_manager_t* pm) {
     if (!pm || !pm->manifest) {
         fprintf(stderr, "No manifest found. Run 'cm packages init' first.\n");
         return -1;
@@ -361,7 +353,7 @@ int cm_packages_install_all(cm_package_manager_t* pm) {
     return 0;
 }
 
-int cm_packages_cmd_remove(const char* package_name) {
+int curium_packages_cmd_remove(const char* package_name) {
     if (!package_name) {
         fprintf(stderr, "Error: Package name required\n");
         return -1;
@@ -378,7 +370,7 @@ int cm_packages_cmd_remove(const char* package_name) {
     return 0;
 }
 
-int cm_packages_cmd_update(const char* package_name) {
+int curium_packages_cmd_update(const char* package_name) {
     if (!package_name) {
         /* Update all packages */
         printf("Updating all packages...\n");
@@ -395,8 +387,8 @@ int cm_packages_cmd_update(const char* package_name) {
     return 0;
 }
 
-int cm_packages_cmd_list(void) {
-    cm_package_manager_t* pm = cm_packages_init(".");
+int curium_packages_cmd_list(void) {
+    curium_package_manager_t* pm = curium_packages_init(".");
     if (!pm || !pm->manifest) {
         fprintf(stderr, "No manifest found.\n");
         return -1;
@@ -409,11 +401,11 @@ int cm_packages_cmd_list(void) {
     printf("\nDependencies:\n");
     /* TODO: List installed dependencies */
     
-    cm_packages_free(pm);
+    curium_packages_free(pm);
     return 0;
 }
 
-int cm_packages_cmd_search(const char* query) {
+int curium_packages_cmd_search(const char* query) {
     if (!query) {
         fprintf(stderr, "Error: Search query required\n");
         return -1;

@@ -1,0 +1,36 @@
+fn main() {
+    println("=== While Loop Test ===");
+
+    // Basic while loop - countdown
+    mut count = 5;
+    while count > 0 {
+        print("Countdown: ");
+        println(count);
+        count = count - 1;
+    }
+    println("Liftoff!");
+
+    // While loop with accumulator
+    mut sum = 0;
+    mut i = 1;
+    while i <= 10 {
+        sum = sum + i;
+        i = i + 1;
+    }
+    print("Sum 1..10 = ");
+    println(sum);
+
+    // Nested while
+    mut row = 0;
+    while row < 3 {
+        mut col = 0;
+        while col < 3 {
+            print(row * 3 + col);
+            print(" ");
+            col = col + 1;
+        }
+        row = row + 1;
+    }
+    println("");
+    println("While loops passed!");
+}

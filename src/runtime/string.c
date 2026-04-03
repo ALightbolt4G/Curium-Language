@@ -1,26 +1,26 @@
-#include "cm/string.h"
-#include "cm/memory.h"
+#include "curium/string.h"
+#include "curium/memory.h"
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 
-#define CM_STRING_COPY 0x01
-#define CM_STRING_NOCOPY 0x02
+#define CURIUM_STRING_COPY 0x01
+#define CURIUM_STRING_NOCOPY 0x02
 
-cm_string_t* cm_string_new(const char* initial) {
-    cm_string_t* s = (cm_string_t*)cm_alloc(sizeof(cm_string_t), "string");
+curium_string_t* curium_string_new(const char* initial) {
+    curium_string_t* s = (curium_string_t*)curium_alloc(sizeof(curium_string_t), "string");
     if (!s) return NULL;
 
     size_t len = initial ? strlen(initial) : 0;
     s->length = len;
     s->capacity = len + 1;
-    s->data = (char*)cm_alloc(s->capacity, "string_data");
+    s->data = (char*)curium_alloc(s->capacity, "string_data");
     s->ref_count = 1;
     s->hash = 0;
     s->created = time(NULL);
-    s->flags = CM_STRING_COPY;
+    s->flags = CURIUM_STRING_COPY;
 
     if (s->data) {
         if (initial && len > 0) {
@@ -32,22 +32,22 @@ cm_string_t* cm_string_new(const char* initial) {
     return s;
 }
 
-void cm_string_free(cm_string_t* s) {
+void curium_string_free(curium_string_t* s) {
     if (!s) return;
     s->ref_count--;
     if (s->ref_count <= 0) {
-        if (s->data && !(s->flags & CM_STRING_NOCOPY)) {
-            cm_free(s->data);
+        if (s->data && !(s->flags & CURIUM_STRING_NOCOPY)) {
+            curium_free(s->data);
         }
-        cm_free(s);
+        curium_free(s);
     }
 }
 
-size_t cm_string_length(cm_string_t* s) {
+size_t curium_string_length(curium_string_t* s) {
     return s ? s->length : 0;
 }
 
-size_t cm_string_length_utf8(cm_string_t* s) {
+size_t curium_string_length_utf8(curium_string_t* s) {
     if (!s || !s->data) return 0;
     size_t count = 0;
     const unsigned char* p = (const unsigned char*)s->data;
@@ -60,7 +60,7 @@ size_t cm_string_length_utf8(cm_string_t* s) {
     return count;
 }
 
-cm_string_t* cm_string_format(const char* format, ...) {
+curium_string_t* curium_string_format(const char* format, ...) {
     if (!format) return NULL;
     va_list args;
     va_start(args, format);
@@ -75,27 +75,27 @@ cm_string_t* cm_string_format(const char* format, ...) {
     vsnprintf(buffer, size + 1, format, args);
     va_end(args);
 
-    cm_string_t* result = cm_string_new(buffer);
+    curium_string_t* result = curium_string_new(buffer);
     free(buffer);
     return result;
 }
 
-void cm_string_set(cm_string_t* s, const char* value) {
+void curium_string_set(curium_string_t* s, const char* value) {
     if (!s) return;
     if (!value) value = "";
     size_t len = strlen(value);
 
-    if (len + 1 > s->capacity || (s->flags & CM_STRING_NOCOPY)) {
-        char* new_data = (char*)cm_alloc(len + 1, "string_data");
+    if (len + 1 > s->capacity || (s->flags & CURIUM_STRING_NOCOPY)) {
+        char* new_data = (char*)curium_alloc(len + 1, "string_data");
         if (!new_data) return;
 
-        if (s->data && !(s->flags & CM_STRING_NOCOPY)) {
-            cm_free(s->data);
+        if (s->data && !(s->flags & CURIUM_STRING_NOCOPY)) {
+            curium_free(s->data);
         }
 
         s->data = new_data;
         s->capacity = len + 1;
-        s->flags &= ~CM_STRING_NOCOPY;
+        s->flags &= ~CURIUM_STRING_NOCOPY;
     }
 
     memcpy(s->data, value, len + 1);
@@ -103,18 +103,18 @@ void cm_string_set(cm_string_t* s, const char* value) {
     s->hash = 0;
 }
 
-void cm_string_append(cm_string_t* s, const char* value) {
+void curium_string_append(curium_string_t* s, const char* value) {
     if (!s || !value) return;
     size_t append_len = strlen(value);
     if (append_len == 0) return;
 
     if (s->length + append_len + 1 > s->capacity) {
         size_t new_cap = (s->length + append_len + 1) * 2;
-        char* new_data = (char*)cm_alloc(new_cap, "string_data");
+        char* new_data = (char*)curium_alloc(new_cap, "string_data");
         if (!new_data) return;
         if (s->data) {
             memcpy(new_data, s->data, s->length);
-            cm_free(s->data);
+            curium_free(s->data);
         }
         s->data = new_data;
         s->capacity = new_cap;
@@ -126,7 +126,7 @@ void cm_string_append(cm_string_t* s, const char* value) {
     s->hash = 0;
 }
 
-void cm_string_upper(cm_string_t* s) {
+void curium_string_upper(curium_string_t* s) {
     if (!s || !s->data) return;
     for (size_t i = 0; i < s->length; i++) {
         s->data[i] = toupper(s->data[i]);
@@ -134,7 +134,7 @@ void cm_string_upper(cm_string_t* s) {
     s->hash = 0;
 }
 
-void cm_string_lower(cm_string_t* s) {
+void curium_string_lower(curium_string_t* s) {
     if (!s || !s->data) return;
     for (size_t i = 0; i < s->length; i++) {
         s->data[i] = tolower(s->data[i]);
@@ -142,35 +142,36 @@ void cm_string_lower(cm_string_t* s) {
     s->hash = 0;
 }
 
-cm_string_t* cm_input(const char* prompt) {
-    if (prompt) {
-        printf("%s", prompt);
+curium_string_t* curium_input(curium_string_t* prompt) {
+    if (prompt && prompt->data) {
+        printf("%s", prompt->data);
         fflush(stdout);
     }
     char buffer[2048] = {0};
     if (fgets(buffer, sizeof(buffer), stdin)) {
         buffer[strcspn(buffer, "\n")] = 0;
-        return cm_string_new(buffer);
+        return curium_string_new(buffer);
     }
     return NULL;
 }
 
-void cm_print_str(cm_string_t* s) {
+void curium_print_str(curium_string_t* s) {
     if (!s || !s->data) return;
     printf("%s", s->data);
 }
 
-void cm_println_str(cm_string_t* s) {
-    if (!s || !s->data) {
-        printf("\n");
-        return;
+void curium_println_str(curium_string_t* s) {
+    if (s && s->data) {
+        printf("%s", s->data);
     }
-    printf("%s\n", s->data);
 }
 
-void cm_print_int(int x) { printf("%d", x); }
-void cm_println_int(int x) { printf("%d\n", x); }
-void cm_print_float(double x) { printf("%g", x); }
-void cm_println_float(double x) { printf("%g\n", x); }
-void cm_print_cstr(const char* x) { if(x) printf("%s", x); }
-void cm_println_cstr(const char* x) { if(x) printf("%s\n", x); else printf("\n"); }
+void curium_print_int(int x) { printf("%d", x); }
+void curium_println_int(int x) { printf("%d", x); }
+void curium_print_float(double x) { printf("%g", x); }
+void curium_println_float(double x) { printf("%g", x); }
+void curium_print_cstr(const char* x) { if(x) printf("%s", x); }
+
+void curium_println_cstr(const char* x) { if(x) printf("%s", x); }
+
+

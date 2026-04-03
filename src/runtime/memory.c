@@ -1,18 +1,18 @@
-#include "cm/memory.h"
-#include "cm/error.h"
+#include "curium/memory.h"
+#include "curium/error.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <stdint.h>
-#include "cm/thread.h"
+#include "curium/thread.h"
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
-#define CM_GC_HASH_SIZE 4096
-#define CM_MAX_HANDLES  65536
+#define CURIUM_GC_HASH_SIZE 4096
+#define CURIUM_MAX_HANDLES  65536
 
 
 struct CMObject {
@@ -43,16 +43,17 @@ typedef struct {
 typedef struct {
     CMObject* head;
     CMObject* tail;
-    CMObject* obj_hash[CM_GC_HASH_SIZE];
+    CMObject* obj_hash[CURIUM_GC_HASH_SIZE];
     
-    CMHandle handle_table[CM_MAX_HANDLES];
+    CMHandle handle_table[CURIUM_MAX_HANDLES];
+    uint32_t free_handles[CURIUM_MAX_HANDLES];
+    uint32_t free_handles_count;
     uint64_t next_generation;
-    uint32_t next_handle_index;
 
     size_t total_memory;
     size_t gc_last_collection;
     CMMutex gc_lock;
-    CMArena* current_arena;
+    CuriumArena* current_arena;
     CMMutex arena_lock;
 
     size_t peak_memory;
@@ -63,11 +64,11 @@ typedef struct {
     size_t total_objects;
 } CMMemorySystem;
 
-static CMMemorySystem cm_mem = {0};
+static CMMemorySystem curium_mem = {0};
 
 static void free_object_internal(CMObject* obj);
 
-static inline uint32_t cm_hash_ptr(void* ptr) {
+static inline uint32_t curium_hash_ptr(void* ptr) {
     uintptr_t val = (uintptr_t)ptr;
     val ^= val >> 13;
     val *= 0x5bd1e995;
@@ -75,37 +76,40 @@ static inline uint32_t cm_hash_ptr(void* ptr) {
     return (uint32_t)val;
 }
 
-void cm_gc_init(void) {
+void curium_gc_init(void) {
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
 #endif
-    memset(&cm_mem, 0, sizeof(CMMemorySystem));
-    cm_mem.gc_lock = cm_mutex_init();
-    cm_mem.arena_lock = cm_mutex_init();
-    cm_mem.next_generation = 1;
-    cm_mem.next_handle_index = 0;
+    memset(&curium_mem, 0, sizeof(CMMemorySystem));
+    curium_mem.gc_lock = curium_mutex_init();
+    curium_mem.arena_lock = curium_mutex_init();
+    curium_mem.next_generation = 1;
+    curium_mem.free_handles_count = CURIUM_MAX_HANDLES;
+    for (uint32_t i = 0; i < CURIUM_MAX_HANDLES; i++) {
+        curium_mem.free_handles[i] = CURIUM_MAX_HANDLES - 1 - i;
+    }
 }
 
-void cm_gc_shutdown(void) {
-    cm_gc_collect();
-    if (cm_mem.total_objects > 0) {
+void curium_gc_shutdown(void) {
+    curium_gc_collect();
+    if (curium_mem.total_objects > 0) {
         /*
         printf("\n[CM] WARNING: Memory leaks detected during shutdown!\n");
-        cm_gc_print_leaks();
+        curium_gc_print_leaks();
         */
 
         /* Force-free all remaining leaked objects to prevent OS-level leaks.
          * Drain from head rather than iterating via next, because destructors
-         * may cascade cm_free() calls that mutate the list. */
-        while (cm_mem.head) {
-            CMObject* current = cm_mem.head;
-            uint32_t h = cm_hash_ptr(current->ptr) % CM_GC_HASH_SIZE;
-            CMObject* ho = cm_mem.obj_hash[h];
+         * may cascade curium_free() calls that mutate the list. */
+        while (curium_mem.head) {
+            CMObject* current = curium_mem.head;
+            uint32_t h = curium_hash_ptr(current->ptr) % CURIUM_GC_HASH_SIZE;
+            CMObject* ho = curium_mem.obj_hash[h];
             CMObject* prev_ho = NULL;
             while (ho) {
                 if (ho == current) {
                     if (prev_ho) prev_ho->hash_next = ho->hash_next;
-                    else cm_mem.obj_hash[h] = ho->hash_next;
+                    else curium_mem.obj_hash[h] = ho->hash_next;
                     break;
                 }
                 prev_ho = ho;
@@ -116,18 +120,18 @@ void cm_gc_shutdown(void) {
     }
 
     /* Destroy mutexes to avoid OS-level resource leaks */
-    if (cm_mem.gc_lock) {
-        cm_mutex_destroy(cm_mem.gc_lock);
-        cm_mem.gc_lock = NULL;
+    if (curium_mem.gc_lock) {
+        curium_mutex_destroy(curium_mem.gc_lock);
+        curium_mem.gc_lock = NULL;
     }
-    if (cm_mem.arena_lock) {
-        cm_mutex_destroy(cm_mem.arena_lock);
-        cm_mem.arena_lock = NULL;
+    if (curium_mem.arena_lock) {
+        curium_mutex_destroy(curium_mem.arena_lock);
+        curium_mem.arena_lock = NULL;
     }
 }
 
-CMArena* cm_arena_create(size_t size) {
-    CMArena* arena = (CMArena*)malloc(sizeof(CMArena));
+CuriumArena* curium_arena_create(size_t size) {
+    CuriumArena* arena = (CuriumArena*)malloc(sizeof(CuriumArena));
     if (!arena) return NULL;
     arena->block = malloc(size);
     if (!arena->block) { free(arena); return NULL; }
@@ -139,57 +143,57 @@ CMArena* cm_arena_create(size_t size) {
     return arena;
 }
 
-void cm_arena_destroy(CMArena* arena) {
+void curium_arena_destroy(CuriumArena* arena) {
     if (!arena) return;
     if (arena->block) free(arena->block);
     free(arena);
 }
 
-void cm_arena_push(CMArena* arena) {
-    cm_mutex_lock(cm_mem.arena_lock);
-    cm_mem.current_arena = arena;
-    cm_mutex_unlock(cm_mem.arena_lock);
+void curium_arena_push(CuriumArena* arena) {
+    curium_mutex_lock(curium_mem.arena_lock);
+    curium_mem.current_arena = arena;
+    curium_mutex_unlock(curium_mem.arena_lock);
 }
 
-void cm_arena_pop(void) {
-    cm_mutex_lock(cm_mem.arena_lock);
-    cm_mem.current_arena = NULL;
-    cm_mutex_unlock(cm_mem.arena_lock);
+void curium_arena_pop(void) {
+    curium_mutex_lock(curium_mem.arena_lock);
+    curium_mem.current_arena = NULL;
+    curium_mutex_unlock(curium_mem.arena_lock);
 }
 
-void cm_arena_cleanup(void* ptr) {
-    CMArena** arena_ptr = (CMArena**)ptr;
+void curium_arena_cleanup(void* ptr) {
+    CuriumArena** arena_ptr = (CuriumArena**)ptr;
     if (*arena_ptr) {
-        cm_mutex_lock(cm_mem.arena_lock);
-        if (cm_mem.current_arena == *arena_ptr) {
-            cm_mem.current_arena = NULL;
+        curium_mutex_lock(curium_mem.arena_lock);
+        if (curium_mem.current_arena == *arena_ptr) {
+            curium_mem.current_arena = NULL;
         }
-        cm_mutex_unlock(cm_mem.arena_lock);
+        curium_mutex_unlock(curium_mem.arena_lock);
 
-        cm_arena_destroy(*arena_ptr);
+        curium_arena_destroy(*arena_ptr);
         *arena_ptr = NULL;
     }
 }
 
-void* cm_alloc_impl(size_t size, const char* type, const char* file, int line) {
+void* curium_alloc_impl(size_t size, const char* type, const char* file, int line) {
     if (size == 0) return NULL;
 
-    cm_mutex_lock(cm_mem.arena_lock);
-    if (cm_mem.current_arena) {
+    curium_mutex_lock(curium_mem.arena_lock);
+    if (curium_mem.current_arena) {
         size_t aligned_size = (size + 7) & ~7;
-        if (cm_mem.current_arena->offset + aligned_size <= cm_mem.current_arena->block_size) {
-            void* ptr = (char*)cm_mem.current_arena->block + cm_mem.current_arena->offset;
-            cm_mem.current_arena->offset += aligned_size;
+        if (curium_mem.current_arena->offset + aligned_size <= curium_mem.current_arena->block_size) {
+            void* ptr = (char*)curium_mem.current_arena->block + curium_mem.current_arena->offset;
+            curium_mem.current_arena->offset += aligned_size;
 
-            if (cm_mem.current_arena->offset > cm_mem.current_arena->peak_usage) {
-                cm_mem.current_arena->peak_usage = cm_mem.current_arena->offset;
+            if (curium_mem.current_arena->offset > curium_mem.current_arena->peak_usage) {
+                curium_mem.current_arena->peak_usage = curium_mem.current_arena->offset;
             }
-            cm_mutex_unlock(cm_mem.arena_lock);
+            curium_mutex_unlock(curium_mem.arena_lock);
             memset(ptr, 0, size); // Zero-initialize arena memory
             return ptr;
         }
     }
-    cm_mutex_unlock(cm_mem.arena_lock);
+    curium_mutex_unlock(curium_mem.arena_lock);
 
     void* ptr = malloc(size);
     if (!ptr) return NULL;
@@ -216,61 +220,56 @@ void* cm_alloc_impl(size_t size, const char* type, const char* file, int line) {
     obj->mark_cb = NULL;
     obj->hash_next = NULL;
 
-    cm_mutex_lock(cm_mem.gc_lock);
+    curium_mutex_lock(curium_mem.gc_lock);
     
     /* Assign handle and generation */
-    uint32_t start_idx = cm_mem.next_handle_index;
     int found = 0;
-    for (uint32_t i = 0; i < CM_MAX_HANDLES; i++) {
-        uint32_t idx = (start_idx + i) % CM_MAX_HANDLES;
-        if (cm_mem.handle_table[idx].obj == NULL) {
-            obj->handle_index = idx;
-            obj->generation = cm_mem.next_generation++;
-            cm_mem.handle_table[idx].obj = obj;
-            cm_mem.handle_table[idx].generation = obj->generation;
-            cm_mem.next_handle_index = (idx + 1) % CM_MAX_HANDLES;
-            found = 1;
-            break;
-        }
+    if (curium_mem.free_handles_count > 0) {
+        uint32_t idx = curium_mem.free_handles[--curium_mem.free_handles_count];
+        obj->handle_index = idx;
+        obj->generation = curium_mem.next_generation++;
+        curium_mem.handle_table[idx].obj = obj;
+        curium_mem.handle_table[idx].generation = obj->generation;
+        found = 1;
     }
 
     if (!found) {
-        cm_mutex_unlock(cm_mem.gc_lock);
+        curium_mutex_unlock(curium_mem.gc_lock);
         free(obj); free(ptr);
-        cm_error_set(CM_ERROR_MEMORY, "Handle table overflow");
+        curium_error_set(CURIUM_ERROR_MEMORY, "Handle table overflow");
         return NULL;
     }
 
-    uint32_t h = cm_hash_ptr(ptr) % CM_GC_HASH_SIZE;
-    obj->hash_next = cm_mem.obj_hash[h];
-    cm_mem.obj_hash[h] = obj;
+    uint32_t h = curium_hash_ptr(ptr) % CURIUM_GC_HASH_SIZE;
+    obj->hash_next = curium_mem.obj_hash[h];
+    curium_mem.obj_hash[h] = obj;
 
-    if (cm_mem.tail) {
-        cm_mem.tail->next = obj;
-        obj->prev = cm_mem.tail;
-        cm_mem.tail = obj;
+    if (curium_mem.tail) {
+        curium_mem.tail->next = obj;
+        obj->prev = curium_mem.tail;
+        curium_mem.tail = obj;
     } else {
-        cm_mem.head = cm_mem.tail = obj;
+        curium_mem.head = curium_mem.tail = obj;
     }
 
-    cm_mem.total_objects++;
-    cm_mem.total_memory += size;
-    cm_mem.allocations++;
+    curium_mem.total_objects++;
+    curium_mem.total_memory += size;
+    curium_mem.allocations++;
 
-    if (cm_mem.total_memory > cm_mem.peak_memory) {
-        cm_mem.peak_memory = cm_mem.total_memory;
+    if (curium_mem.total_memory > curium_mem.peak_memory) {
+        curium_mem.peak_memory = curium_mem.total_memory;
     }
 
-    cm_mutex_unlock(cm_mem.gc_lock);
+    curium_mutex_unlock(curium_mem.gc_lock);
 
     return ptr;
 }
 
-void cm_set_destructor(void* ptr, void (*destructor)(void*)) {
+void curium_set_destructor(void* ptr, void (*destructor)(void*)) {
     if (!ptr) return;
-    cm_mutex_lock(cm_mem.gc_lock);
-    uint32_t h = cm_hash_ptr(ptr) % CM_GC_HASH_SIZE;
-    CMObject* obj = cm_mem.obj_hash[h];
+    curium_mutex_lock(curium_mem.gc_lock);
+    uint32_t h = curium_hash_ptr(ptr) % CURIUM_GC_HASH_SIZE;
+    CMObject* obj = curium_mem.obj_hash[h];
     while (obj) {
         if (obj->ptr == ptr) {
             obj->destructor = destructor;
@@ -278,15 +277,15 @@ void cm_set_destructor(void* ptr, void (*destructor)(void*)) {
         }
         obj = obj->hash_next;
     }
-    cm_mutex_unlock(cm_mem.gc_lock);
+    curium_mutex_unlock(curium_mem.gc_lock);
 }
 
-cm_ptr_t cm_ptr(void* ptr) {
-    cm_ptr_t p = {0, 0};
+curium_ptr_t curium_ptr(void* ptr) {
+    curium_ptr_t p = {0, 0};
     if (!ptr) return p;
-    cm_mutex_lock(cm_mem.gc_lock);
-    uint32_t h = cm_hash_ptr(ptr) % CM_GC_HASH_SIZE;
-    CMObject* obj = cm_mem.obj_hash[h];
+    curium_mutex_lock(curium_mem.gc_lock);
+    uint32_t h = curium_hash_ptr(ptr) % CURIUM_GC_HASH_SIZE;
+    CMObject* obj = curium_mem.obj_hash[h];
     while (obj) {
         if (obj->ptr == ptr) {
             p.index = obj->handle_index;
@@ -295,19 +294,19 @@ cm_ptr_t cm_ptr(void* ptr) {
         }
         obj = obj->hash_next;
     }
-    cm_mutex_unlock(cm_mem.gc_lock);
+    curium_mutex_unlock(curium_mem.gc_lock);
     return p;
 }
 
-void* cm_ptr_get(cm_ptr_t handle) {
-    if (handle.generation == 0 || handle.index >= CM_MAX_HANDLES) return NULL;
+void* curium_ptr_get(curium_ptr_t handle) {
+    if (handle.generation == 0 || handle.index >= CURIUM_MAX_HANDLES) return NULL;
     void* result = NULL;
-    cm_mutex_lock(cm_mem.gc_lock);
-    if (cm_mem.handle_table[handle.index].generation == handle.generation) {
-        CMObject* obj = cm_mem.handle_table[handle.index].obj;
+    curium_mutex_lock(curium_mem.gc_lock);
+    if (curium_mem.handle_table[handle.index].generation == handle.generation) {
+        CMObject* obj = curium_mem.handle_table[handle.index].obj;
         if (obj) result = obj->ptr;
     }
-    cm_mutex_unlock(cm_mem.gc_lock);
+    curium_mutex_unlock(curium_mem.gc_lock);
     return result;
 }
 
@@ -319,29 +318,30 @@ static void free_object_internal(CMObject* obj) {
         obj->ptr = NULL;
     }
     /* Invalidate handle table entry but keep generation for safety */
-    cm_mem.handle_table[obj->handle_index].obj = NULL;
+    curium_mem.handle_table[obj->handle_index].obj = NULL;
+    curium_mem.free_handles[curium_mem.free_handles_count++] = obj->handle_index;
 
-    cm_mem.total_objects--;
-    cm_mem.total_memory -= obj->size;
-    cm_mem.frees++;
+    curium_mem.total_objects--;
+    curium_mem.total_memory -= obj->size;
+    curium_mem.frees++;
     
     /* Unlink from list */
     if (obj->prev) obj->prev->next = obj->next;
-    else cm_mem.head = obj->next;
+    else curium_mem.head = obj->next;
     if (obj->next) obj->next->prev = obj->prev;
-    else cm_mem.tail = obj->prev;
+    else curium_mem.tail = obj->prev;
 
     free(obj);
 }
 
-void cm_free(void* ptr) {
+void curium_free(void* ptr) {
     if (!ptr) return;
 
-    cm_mutex_lock(cm_mem.gc_lock);
+    curium_mutex_lock(curium_mem.gc_lock);
 
-    uint32_t h = cm_hash_ptr(ptr) % CM_GC_HASH_SIZE;
+    uint32_t h = curium_hash_ptr(ptr) % CURIUM_GC_HASH_SIZE;
     CMObject* prev_hash = NULL;
-    CMObject* obj = cm_mem.obj_hash[h];
+    CMObject* obj = curium_mem.obj_hash[h];
     
     while (obj) {
         if (obj->ptr == ptr) {
@@ -349,27 +349,27 @@ void cm_free(void* ptr) {
 
             if (obj->ref_count <= 0) {
                 if (prev_hash) prev_hash->hash_next = obj->hash_next;
-                else cm_mem.obj_hash[h] = obj->hash_next;
+                else curium_mem.obj_hash[h] = obj->hash_next;
                 free_object_internal(obj);
             }
-            cm_mutex_unlock(cm_mem.gc_lock);
+            curium_mutex_unlock(curium_mem.gc_lock);
             return;
         }
         prev_hash = obj;
         obj = obj->hash_next;
     }
 
-    cm_mutex_unlock(cm_mem.gc_lock);
+    curium_mutex_unlock(curium_mem.gc_lock);
 }
 
-void cm_gc_collect(void) {
-    cm_mutex_lock(cm_mem.gc_lock);
+void curium_gc_collect(void) {
+    curium_mutex_lock(curium_mem.gc_lock);
 
-    for (CMObject* obj = cm_mem.head; obj; obj = obj->next) {
+    for (CMObject* obj = curium_mem.head; obj; obj = obj->next) {
         obj->marked = (obj->ref_count > 0) ? 1 : 0;
     }
 
-    CMObject* current = cm_mem.head;
+    CMObject* current = curium_mem.head;
     // size_t freed_memory = 0; // Removed
     // int freed_objects = 0; // Removed
 
@@ -380,13 +380,13 @@ void cm_gc_collect(void) {
             // freed_memory += current->size; // Removed
             // freed_objects++; // Removed
 
-            uint32_t h = cm_hash_ptr(current->ptr) % CM_GC_HASH_SIZE;
-            CMObject* ho = cm_mem.obj_hash[h];
+            uint32_t h = curium_hash_ptr(current->ptr) % CURIUM_GC_HASH_SIZE;
+            CMObject* ho = curium_mem.obj_hash[h];
             CMObject* prev_ho = NULL;
             while (ho) {
                 if (ho == current) {
                     if (prev_ho) prev_ho->hash_next = ho->hash_next;
-                    else cm_mem.obj_hash[h] = ho->hash_next;
+                    else curium_mem.obj_hash[h] = ho->hash_next;
                     break;
                 }
                 prev_ho = ho;
@@ -398,57 +398,57 @@ void cm_gc_collect(void) {
 
         current = next;
     }
-    // cm_mem.gc_last_collection = freed_memory; // Removed
-    cm_mem.collections++;
+    // curium_mem.gc_last_collection = freed_memory; // Removed
+    curium_mem.collections++;
 
-    cm_mutex_unlock(cm_mem.gc_lock);
+    curium_mutex_unlock(curium_mem.gc_lock);
 }
 
-void cm_gc_print_leaks(void) {
-    cm_mutex_lock(cm_mem.gc_lock);
+void curium_gc_print_leaks(void) {
+    curium_mutex_lock(curium_mem.gc_lock);
     printf("\n══════════════════════════════════════════════════════════════\n");
     printf("                  MEMORY LEAK ANALYSIS REPORT\n");
     printf("──────────────────────────────────────────────────────────────\n");
-    CMObject* curr = cm_mem.head;
+    CMObject* curr = curium_mem.head;
     while (curr) {
         printf("  LEAK: %-12s │ %6zu bytes │ %s:%d\n", 
                curr->type, curr->size, curr->file, curr->line);
         curr = curr->next;
     }
     printf("══════════════════════════════════════════════════════════════\n");
-    cm_mutex_unlock(cm_mem.gc_lock);
+    curium_mutex_unlock(curium_mem.gc_lock);
 }
 
-void cm_gc_stats(void) {
-    cm_mutex_lock(cm_mem.gc_lock);
+void curium_gc_stats(void) {
+    curium_mutex_lock(curium_mem.gc_lock);
     printf("\n══════════════════════════════════════════════════════════════\n");
     printf("              GARBAGE COLLECTOR STATISTICS\n");
     printf("──────────────────────────────────────────────────────────────\n");
-    printf("  Total objects    │ %20zu\n", cm_mem.total_objects);
-    printf("  Total memory     │ %20zu bytes\n", cm_mem.total_memory);
-    printf("  Peak memory      │ %20zu bytes\n", cm_mem.peak_memory);
-    printf("  Allocations      │ %20zu\n", cm_mem.allocations);
-    printf("  Frees            │ %20zu\n", cm_mem.frees);
-    printf("  Collections      │ %20zu\n", cm_mem.collections);
-    if (cm_mem.current_arena) {
+    printf("  Total objects    │ %20zu\n", curium_mem.total_objects);
+    printf("  Total memory     │ %20zu bytes\n", curium_mem.total_memory);
+    printf("  Peak memory      │ %20zu bytes\n", curium_mem.peak_memory);
+    printf("  Allocations      │ %20zu\n", curium_mem.allocations);
+    printf("  Frees            │ %20zu\n", curium_mem.frees);
+    printf("  Collections      │ %20zu\n", curium_mem.collections);
+    if (curium_mem.current_arena) {
         printf("──────────────────────────────────────────────────────────────\n");
         printf("  ARENA STATISTICS\n");
-        printf("  Arena name       │ %20s\n", cm_mem.current_arena->name);
-        printf("  Arena size       │ %20zu bytes\n", cm_mem.current_arena->block_size);
-        printf("  Arena used       │ %20zu bytes\n", cm_mem.current_arena->offset);
-        printf("  Arena peak       │ %20zu bytes\n", cm_mem.current_arena->peak_usage);
+        printf("  Arena name       │ %20s\n", curium_mem.current_arena->name);
+        printf("  Arena size       │ %20zu bytes\n", curium_mem.current_arena->block_size);
+        printf("  Arena used       │ %20zu bytes\n", curium_mem.current_arena->offset);
+        printf("  Arena peak       │ %20zu bytes\n", curium_mem.current_arena->peak_usage);
     }
     printf("══════════════════════════════════════════════════════════════\n");
-    cm_mutex_unlock(cm_mem.gc_lock);
+    curium_mutex_unlock(curium_mem.gc_lock);
 }
 
-void cm_retain(void* ptr) {
+void curium_retain(void* ptr) {
     if (!ptr) return;
 
-    cm_mutex_lock(cm_mem.gc_lock);
+    curium_mutex_lock(curium_mem.gc_lock);
 
-    uint32_t h = cm_hash_ptr(ptr) % CM_GC_HASH_SIZE;
-    CMObject* obj = cm_mem.obj_hash[h];
+    uint32_t h = curium_hash_ptr(ptr) % CURIUM_GC_HASH_SIZE;
+    CMObject* obj = curium_mem.obj_hash[h];
 
     while (obj) {
         if (obj->ptr == ptr) {
@@ -457,40 +457,41 @@ void cm_retain(void* ptr) {
         }
         obj = obj->hash_next;
     }
-    cm_mutex_unlock(cm_mem.gc_lock);
+    curium_mutex_unlock(curium_mem.gc_lock);
 }
 
-void cm_untrack(void* ptr) {
+void curium_untrack(void* ptr) {
     if (!ptr) return;
 
-    cm_mutex_lock(cm_mem.gc_lock);
+    curium_mutex_lock(curium_mem.gc_lock);
 
-    uint32_t h = cm_hash_ptr(ptr) % CM_GC_HASH_SIZE;
+    uint32_t h = curium_hash_ptr(ptr) % CURIUM_GC_HASH_SIZE;
     CMObject* prev_hash = NULL;
-    CMObject* obj = cm_mem.obj_hash[h];
+    CMObject* obj = curium_mem.obj_hash[h];
 
     while (obj) {
         if (obj->ptr == ptr) {
             if (prev_hash) prev_hash->hash_next = obj->hash_next;
-            else cm_mem.obj_hash[h] = obj->hash_next;
+            else curium_mem.obj_hash[h] = obj->hash_next;
 
-            cm_mem.handle_table[obj->handle_index].obj = NULL; // Invalidate handle
+            curium_mem.handle_table[obj->handle_index].obj = NULL; // Invalidate handle
+            curium_mem.free_handles[curium_mem.free_handles_count++] = obj->handle_index;
 
             if (obj->prev) obj->prev->next = obj->next;
-            else cm_mem.head = obj->next;
+            else curium_mem.head = obj->next;
 
             if (obj->next) obj->next->prev = obj->prev;
-            else cm_mem.tail = obj->prev;
+            else curium_mem.tail = obj->prev;
 
-            cm_mem.total_objects--;
-            cm_mem.total_memory -= obj->size;
+            curium_mem.total_objects--;
+            curium_mem.total_memory -= obj->size;
 
             free(obj);
-            cm_mem.frees++;
+            curium_mem.frees++;
             break;
         }
         prev_hash = obj;
         obj = obj->hash_next;
     }
-    cm_mutex_unlock(cm_mem.gc_lock);
+    curium_mutex_unlock(curium_mem.gc_lock);
 }

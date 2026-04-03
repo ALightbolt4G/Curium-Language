@@ -1,0 +1,82 @@
+// Curium Standard Library — OS
+// import "std/os.cm";
+//
+// Provides: os_name, os_exit, os_getenv, os_setenv, os_exec, os_getcwd, os_sleep
+
+pub fn os_name() -> string {
+    c {
+        #ifdef _WIN32
+            return curium_string_new("windows");
+        #elif __APPLE__
+            return curium_string_new("darwin");
+        #elif __linux__
+            return curium_string_new("linux");
+        #else
+            return curium_string_new("unknown");
+        #endif
+    }
+}
+
+pub fn os_exit(code: int) {
+    c {
+        exit(curium_code);
+    }
+}
+
+pub fn os_getenv(key: string) -> string {
+    c {
+        const char* curium___val = getenv(curium_key->data);
+        if (curium___val) return curium_string_new(curium___val);
+        return curium_string_new("");
+    }
+}
+
+pub fn os_setenv(key: string, value: string) -> bool {
+    c {
+        #ifdef _WIN32
+            char curium___buf[4096];
+            snprintf(curium___buf, sizeof(curium___buf), "%s=%s", curium_key->data, curium_value->data);
+            return _putenv(curium___buf) == 0;
+        #else
+            return setenv(curium_key->data, curium_value->data, 1) == 0;
+        #endif
+    }
+}
+
+pub fn os_exec(command: string) -> int {
+    c {
+        return system(curium_command->data);
+    }
+}
+
+pub fn os_getcwd() -> string {
+    c {
+        char curium___buf[4096];
+        #ifdef _WIN32
+            _getcwd(curium___buf, sizeof(curium___buf));
+        #else
+            getcwd(curium___buf, sizeof(curium___buf));
+        #endif
+        return curium_string_new(curium___buf);
+    }
+}
+
+pub fn os_sleep(ms: int) {
+    c {
+        #ifdef _WIN32
+            Sleep(curium_ms);
+        #else
+            usleep(curium_ms * 1000);
+        #endif
+    }
+}
+
+pub fn os_pid() -> int {
+    c {
+        #ifdef _WIN32
+            return (int)GetCurrentProcessId();
+        #else
+            return (int)getpid();
+        #endif
+    }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "test-pharmacy",
+  "version": "1.0.0",
+  "description": "A CM project",
+  "entry": "src/main.curium",
+  "output": "dist/app.exe",
+  "dependencies": {
+    "cm-core": "^5.0.0"
+  }
+}

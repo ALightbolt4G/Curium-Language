@@ -1,6 +1,6 @@
-#include "cm/core.h"
-#include "cm/memory.h"
-#include "cm/error.h"
+#include "curium/core.h"
+#include "curium/memory.h"
+#include "curium/error.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +14,7 @@
 #include <locale.h>
 #endif
 
-void cm_init(void) {
+void curium_init(void) {
 #ifdef _WIN32
     /* Set console code page to UTF-8 */
     SetConsoleOutputCP(65001);
@@ -54,24 +54,24 @@ void cm_init(void) {
 #endif
 
     /* Initialize memory management */
-    cm_gc_init();
+    curium_gc_init();
 
     /* Disable buffering for stdout/stderr to ensure logs are visible immediately */
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 }
 
-void cm_shutdown(void) {
+void curium_shutdown(void) {
     /* Cleanup memory management */
-    cm_gc_shutdown();
+    curium_gc_shutdown();
 }
 
 /* Random string implementation (moving from main or wherever it was if it's core) */
-void cm_random_seed(unsigned int seed) {
+void curium_random_seed(unsigned int seed) {
     srand(seed);
 }
 
-void cm_random_string(char* buffer, size_t length) {
+void curium_random_string(char* buffer, size_t length) {
     const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     for (size_t n = 0; n < length; n++) {
         int key = rand() % (int)(sizeof(charset) - 1);

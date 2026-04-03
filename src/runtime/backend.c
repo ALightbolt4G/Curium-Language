@@ -1,7 +1,7 @@
-#include "cm/backend.h"
-#include "cm/http.h"
-#include "cm/json.h"
-#include "cm/error.h"
+#include "curium/backend.h"
+#include "curium/http.h"
+#include "curium/json.h"
+#include "curium/error.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,17 +19,17 @@
  * Connection Pool Implementation
  * ========================================================================== */
 
-cm_connection_pool_t* cm_pool_create(size_t initial, size_t max,
+curium_connection_pool_t* curium_pool_create(size_t initial, size_t max,
                                       int (*create)(void**),
                                       void (*destroy)(void*),
                                       int (*validate)(void*)) {
-    cm_connection_pool_t* pool = (cm_connection_pool_t*)cm_alloc(sizeof(cm_connection_pool_t), "conn_pool");
+    curium_connection_pool_t* pool = (curium_connection_pool_t*)curium_alloc(sizeof(curium_connection_pool_t), "conn_pool");
     if (!pool) return NULL;
     
     memset(pool, 0, sizeof(*pool));
-    pool->connections = (void**)cm_alloc(sizeof(void*) * max, "conn_pool_array");
+    pool->connections = (void**)curium_alloc(sizeof(void*) * max, "conn_pool_array");
     if (!pool->connections) {
-        cm_free(pool);
+        curium_free(pool);
         return NULL;
     }
     
@@ -38,7 +38,7 @@ cm_connection_pool_t* cm_pool_create(size_t initial, size_t max,
     pool->create_conn = create;
     pool->destroy_conn = destroy;
     pool->validate_conn = validate;
-    pool->lock = cm_mutex_init();
+    pool->lock = curium_mutex_init();
     
     /* Pre-create initial connections */
     for (size_t i = 0; i < initial; i++) {
@@ -51,33 +51,33 @@ cm_connection_pool_t* cm_pool_create(size_t initial, size_t max,
     return pool;
 }
 
-void cm_pool_destroy(cm_connection_pool_t* pool) {
+void curium_pool_destroy(curium_connection_pool_t* pool) {
     if (!pool) return;
     
-    cm_mutex_lock(pool->lock);
+    curium_mutex_lock(pool->lock);
     for (size_t i = 0; i < pool->size; i++) {
         if (pool->connections[i] && pool->destroy_conn) {
             pool->destroy_conn(pool->connections[i]);
         }
     }
-    cm_mutex_unlock(pool->lock);
+    curium_mutex_unlock(pool->lock);
     
-    cm_free(pool->connections);
-    cm_mutex_destroy(pool->lock);
-    cm_free(pool);
+    curium_free(pool->connections);
+    curium_mutex_destroy(pool->lock);
+    curium_free(pool);
 }
 
-void* cm_pool_acquire(cm_connection_pool_t* pool) {
+void* curium_pool_acquire(curium_connection_pool_t* pool) {
     if (!pool) return NULL;
     
-    cm_mutex_lock(pool->lock);
+    curium_mutex_lock(pool->lock);
     
     /* Try to get existing connection */
     for (size_t i = 0; i < pool->size; i++) {
         void* conn = pool->connections[i];
         if (conn && pool->validate_conn && pool->validate_conn(conn) == 0) {
             pool->connections[i] = NULL;  /* Mark as in-use */
-            cm_mutex_unlock(pool->lock);
+            curium_mutex_unlock(pool->lock);
             return conn;
         }
     }
@@ -87,25 +87,25 @@ void* cm_pool_acquire(cm_connection_pool_t* pool) {
         void* conn = NULL;
         if (pool->create_conn(&conn) == 0) {
             pool->size++;
-            cm_mutex_unlock(pool->lock);
+            curium_mutex_unlock(pool->lock);
             return conn;
         }
     }
     
-    cm_mutex_unlock(pool->lock);
+    curium_mutex_unlock(pool->lock);
     return NULL;
 }
 
-int cm_pool_release(cm_connection_pool_t* pool, void* conn) {
+int curium_pool_release(curium_connection_pool_t* pool, void* conn) {
     if (!pool || !conn) return -1;
     
-    cm_mutex_lock(pool->lock);
+    curium_mutex_lock(pool->lock);
     
     /* Find empty slot */
     for (size_t i = 0; i < pool->size; i++) {
         if (pool->connections[i] == NULL) {
             pool->connections[i] = conn;
-            cm_mutex_unlock(pool->lock);
+            curium_mutex_unlock(pool->lock);
             return 0;
         }
     }
@@ -113,11 +113,11 @@ int cm_pool_release(cm_connection_pool_t* pool, void* conn) {
     /* Extend array if needed */
     if (pool->size < pool->capacity) {
         pool->connections[pool->size++] = conn;
-        cm_mutex_unlock(pool->lock);
+        curium_mutex_unlock(pool->lock);
         return 0;
     }
     
-    cm_mutex_unlock(pool->lock);
+    curium_mutex_unlock(pool->lock);
     
     /* No room, destroy */
     if (pool->destroy_conn) {
@@ -130,13 +130,13 @@ int cm_pool_release(cm_connection_pool_t* pool, void* conn) {
  * Zero-Copy Buffer Implementation
  * ========================================================================== */
 
-cm_zerocopy_buffer_t* cm_buffer_create(size_t capacity) {
-    cm_zerocopy_buffer_t* buf = (cm_zerocopy_buffer_t*)cm_alloc(sizeof(cm_zerocopy_buffer_t), "zcbuffer");
+curium_zerocopy_buffer_t* curium_buffer_create(size_t capacity) {
+    curium_zerocopy_buffer_t* buf = (curium_zerocopy_buffer_t*)curium_alloc(sizeof(curium_zerocopy_buffer_t), "zcbuffer");
     if (!buf) return NULL;
     
-    buf->data = (char*)cm_alloc(capacity, "zcbuffer_data");
+    buf->data = (char*)curium_alloc(capacity, "zcbuffer_data");
     if (!buf->data) {
-        cm_free(buf);
+        curium_free(buf);
         return NULL;
     }
     
@@ -148,24 +148,24 @@ cm_zerocopy_buffer_t* cm_buffer_create(size_t capacity) {
     return buf;
 }
 
-cm_zerocopy_buffer_t* cm_buffer_ref(cm_zerocopy_buffer_t* buf) {
+curium_zerocopy_buffer_t* curium_buffer_ref(curium_zerocopy_buffer_t* buf) {
     if (!buf) return NULL;
     /* Note: In real implementation, would use atomic increment */
     buf->ref_count++;
     return buf;
 }
 
-void cm_buffer_unref(cm_zerocopy_buffer_t* buf) {
+void curium_buffer_unref(curium_zerocopy_buffer_t* buf) {
     if (!buf) return;
     /* Note: In real implementation, would use atomic decrement */
     buf->ref_count--;
     if (buf->ref_count <= 0) {
-        if (buf->data) cm_free(buf->data);
-        cm_free(buf);
+        if (buf->data) curium_free(buf->data);
+        curium_free(buf);
     }
 }
 
-size_t cm_buffer_write(cm_zerocopy_buffer_t* buf, const void* data, size_t len) {
+size_t curium_buffer_write(curium_zerocopy_buffer_t* buf, const void* data, size_t len) {
     if (!buf || !data || len == 0) return 0;
     
     size_t available = buf->capacity - buf->write_pos;
@@ -177,7 +177,7 @@ size_t cm_buffer_write(cm_zerocopy_buffer_t* buf, const void* data, size_t len) 
     return to_write;
 }
 
-size_t cm_buffer_read(cm_zerocopy_buffer_t* buf, void* dest, size_t len) {
+size_t curium_buffer_read(curium_zerocopy_buffer_t* buf, void* dest, size_t len) {
     if (!buf || !dest || len == 0) return 0;
     
     size_t available = buf->write_pos - buf->read_pos;
@@ -189,7 +189,7 @@ size_t cm_buffer_read(cm_zerocopy_buffer_t* buf, void* dest, size_t len) {
     return to_read;
 }
 
-void cm_buffer_reset(cm_zerocopy_buffer_t* buf) {
+void curium_buffer_reset(curium_zerocopy_buffer_t* buf) {
     if (!buf) return;
     buf->read_pos = 0;
     buf->write_pos = 0;
@@ -199,45 +199,45 @@ void cm_buffer_reset(cm_zerocopy_buffer_t* buf) {
  * String Interning Pool
  * ========================================================================== */
 
-cm_string_pool_t* cm_string_pool_create(void) {
-    cm_string_pool_t* pool = (cm_string_pool_t*)cm_alloc(sizeof(cm_string_pool_t), "string_pool");
+curium_string_pool_t* curium_string_pool_create(void) {
+    curium_string_pool_t* pool = (curium_string_pool_t*)curium_alloc(sizeof(curium_string_pool_t), "string_pool");
     if (!pool) return NULL;
     
-    pool->table = cm_map_new();
-    pool->lock = cm_mutex_init();
+    pool->table = curium_map_new();
+    pool->lock = curium_mutex_init();
     
     return pool;
 }
 
-void cm_string_pool_destroy(cm_string_pool_t* pool) {
+void curium_string_pool_destroy(curium_string_pool_t* pool) {
     if (!pool) return;
     
-    cm_mutex_lock(pool->lock);
+    curium_mutex_lock(pool->lock);
     /* Free all interned strings */
-    cm_map_free(pool->table);
-    cm_mutex_unlock(pool->lock);
+    curium_map_free(pool->table);
+    curium_mutex_unlock(pool->lock);
     
-    cm_mutex_destroy(pool->lock);
-    cm_free(pool);
+    curium_mutex_destroy(pool->lock);
+    curium_free(pool);
 }
 
-const char* cm_string_pool_intern(cm_string_pool_t* pool, const char* str) {
+const char* curium_string_pool_intern(curium_string_pool_t* pool, const char* str) {
     if (!pool || !str) return NULL;
     
-    cm_mutex_lock(pool->lock);
+    curium_mutex_lock(pool->lock);
     
     /* Check if already interned */
-    cm_string_t** existing = (cm_string_t**)cm_map_get(pool->table, str);
+    curium_string_t** existing = (curium_string_t**)curium_map_get(pool->table, str);
     if (existing) {
-        cm_mutex_unlock(pool->lock);
+        curium_mutex_unlock(pool->lock);
         return (*existing)->data;
     }
     
     /* Create new interned string */
-    cm_string_t* interned = cm_string_new(str);
-    cm_map_set(pool->table, str, &interned, sizeof(cm_string_t*));
+    curium_string_t* interned = curium_string_new(str);
+    curium_map_set(pool->table, str, &interned, sizeof(curium_string_t*));
     
-    cm_mutex_unlock(pool->lock);
+    curium_mutex_unlock(pool->lock);
     return interned->data;
 }
 
@@ -245,7 +245,7 @@ const char* cm_string_pool_intern(cm_string_pool_t* pool, const char* str) {
  * Worker Thread Pool (Basic Implementation)
  * ========================================================================== */
 
-struct cm_worker_pool {
+struct curium_worker_pool {
     CMThread* workers;
     size_t num_workers;
     CMMutex queue_lock;
@@ -256,11 +256,11 @@ struct cm_worker_pool {
     int shutdown;
 };
 
-static void* cm_worker_thread(void* arg) {
-    cm_worker_pool_t* pool = (cm_worker_pool_t*)arg;
+static void* curium_worker_thread(void* arg) {
+    curium_worker_pool_t* pool = (curium_worker_pool_t*)arg;
     
     while (!pool->shutdown) {
-        cm_mutex_lock(pool->queue_lock);
+        curium_mutex_lock(pool->queue_lock);
         
         if (pool->task_count > 0) {
             /* Get task */
@@ -270,15 +270,15 @@ static void* cm_worker_thread(void* arg) {
                 pool->tasks[i] = pool->tasks[i + 1];
             }
             pool->task_count--;
-            cm_mutex_unlock(pool->queue_lock);
+            curium_mutex_unlock(pool->queue_lock);
             
             /* Execute task */
-            cm_worker_task_t* task_fn = (cm_worker_task_t*)task;
+            curium_worker_task_t* task_fn = (curium_worker_task_t*)task;
             if (task_fn) {
                 (*task_fn)(NULL);  /* Task arg would come from task struct */
             }
         } else {
-            cm_mutex_unlock(pool->queue_lock);
+            curium_mutex_unlock(pool->queue_lock);
             /* Small sleep to prevent busy-waiting */
 #ifdef _WIN32
             Sleep(1);
@@ -291,26 +291,26 @@ static void* cm_worker_thread(void* arg) {
     return NULL;
 }
 
-cm_worker_pool_t* cm_worker_pool_create(size_t num_workers) {
-    cm_worker_pool_t* pool = (cm_worker_pool_t*)cm_alloc(sizeof(cm_worker_pool_t), "worker_pool");
+curium_worker_pool_t* curium_worker_pool_create(size_t num_workers) {
+    curium_worker_pool_t* pool = (curium_worker_pool_t*)curium_alloc(sizeof(curium_worker_pool_t), "worker_pool");
     if (!pool) return NULL;
     
     memset(pool, 0, sizeof(*pool));
     pool->num_workers = num_workers;
-    pool->workers = (CMThread*)cm_alloc(sizeof(CMThread) * num_workers, "worker_threads");
-    pool->tasks = (void**)cm_alloc(sizeof(void*) * 1024, "task_queue");
+    pool->workers = (CMThread*)curium_alloc(sizeof(CMThread) * num_workers, "worker_threads");
+    pool->tasks = (void**)curium_alloc(sizeof(void*) * 1024, "task_queue");
     pool->task_capacity = 1024;
-    pool->queue_lock = cm_mutex_init();
+    pool->queue_lock = curium_mutex_init();
     
     /* Start worker threads */
     for (size_t i = 0; i < num_workers; i++) {
-        pool->workers[i] = cm_thread_create(cm_worker_thread, pool);
+        pool->workers[i] = curium_thread_create(curium_worker_thread, pool);
     }
     
     return pool;
 }
 
-void cm_worker_pool_destroy(cm_worker_pool_t* pool) {
+void curium_worker_pool_destroy(curium_worker_pool_t* pool) {
     if (!pool) return;
     
     /* Signal shutdown */
@@ -318,43 +318,43 @@ void cm_worker_pool_destroy(cm_worker_pool_t* pool) {
     
     /* Wait for workers */
     for (size_t i = 0; i < pool->num_workers; i++) {
-        cm_thread_join(pool->workers[i]);
+        curium_thread_join(pool->workers[i]);
     }
     
-    cm_free(pool->workers);
-    cm_free(pool->tasks);
-    cm_mutex_destroy(pool->queue_lock);
-    cm_free(pool);
+    curium_free(pool->workers);
+    curium_free(pool->tasks);
+    curium_mutex_destroy(pool->queue_lock);
+    curium_free(pool);
 }
 
-int cm_worker_pool_submit(cm_worker_pool_t* pool, cm_worker_task_t task, void* arg) {
+int curium_worker_pool_submit(curium_worker_pool_t* pool, curium_worker_task_t task, void* arg) {
     if (!pool || !task) return -1;
     (void)arg; /* Not used in simplified implementation */
     
-    cm_mutex_lock(pool->queue_lock);
+    curium_mutex_lock(pool->queue_lock);
     
     if (pool->task_count >= pool->task_capacity) {
-        cm_mutex_unlock(pool->queue_lock);
+        curium_mutex_unlock(pool->queue_lock);
         return -1;  /* Queue full */
     }
     
     /* Store task using union to avoid strict aliasing issues */
-    union { cm_worker_task_t fn; void* ptr; } converter;
+    union { curium_worker_task_t fn; void* ptr; } converter;
     converter.fn = task;
     pool->tasks[pool->task_count++] = converter.ptr;
     
-    cm_mutex_unlock(pool->queue_lock);
+    curium_mutex_unlock(pool->queue_lock);
     return 0;
 }
 
-void cm_worker_pool_wait_all(cm_worker_pool_t* pool) {
+void curium_worker_pool_wait_all(curium_worker_pool_t* pool) {
     if (!pool) return;
     
     /* Wait for queue to empty */
     while (1) {
-        cm_mutex_lock(pool->queue_lock);
+        curium_mutex_lock(pool->queue_lock);
         int empty = (pool->task_count == 0);
-        cm_mutex_unlock(pool->queue_lock);
+        curium_mutex_unlock(pool->queue_lock);
         
         if (empty) break;
         
@@ -370,38 +370,38 @@ void cm_worker_pool_wait_all(cm_worker_pool_t* pool) {
  * Metrics Implementation
  * ========================================================================== */
 
-static cm_backend_metrics_t g_metrics = {0};
+static curium_backend_metrics_t g_metrics = {0};
 static CMMutex g_metrics_lock;
 static int g_metrics_initialized = 0;
 
-static void cm_metrics_init(void) {
+static void curium_metrics_init(void) {
     if (!g_metrics_initialized) {
-        g_metrics_lock = cm_mutex_init();
+        g_metrics_lock = curium_mutex_init();
         g_metrics_initialized = 1;
     }
 }
 
-void cm_backend_get_metrics(cm_backend_metrics_t* metrics) {
+void curium_backend_get_metrics(curium_backend_metrics_t* metrics) {
     if (!metrics) return;
-    cm_metrics_init();
+    curium_metrics_init();
     
-    cm_mutex_lock(g_metrics_lock);
-    memcpy(metrics, &g_metrics, sizeof(cm_backend_metrics_t));
-    cm_mutex_unlock(g_metrics_lock);
+    curium_mutex_lock(g_metrics_lock);
+    memcpy(metrics, &g_metrics, sizeof(curium_backend_metrics_t));
+    curium_mutex_unlock(g_metrics_lock);
 }
 
-void cm_backend_reset_metrics(void) {
-    cm_metrics_init();
+void curium_backend_reset_metrics(void) {
+    curium_metrics_init();
     
-    cm_mutex_lock(g_metrics_lock);
+    curium_mutex_lock(g_metrics_lock);
     memset(&g_metrics, 0, sizeof(g_metrics));
-    cm_mutex_unlock(g_metrics_lock);
+    curium_mutex_unlock(g_metrics_lock);
 }
 
-void cm_backend_record_request(double response_time_ms) {
-    cm_metrics_init();
+void curium_backend_record_request(double response_time_ms) {
+    curium_metrics_init();
     
-    cm_mutex_lock(g_metrics_lock);
+    curium_mutex_lock(g_metrics_lock);
     g_metrics.requests_total++;
     
     /* Update average */
@@ -413,14 +413,14 @@ void cm_backend_record_request(double response_time_ms) {
         g_metrics.p99_response_time_ms = response_time_ms;
     }
     
-    cm_mutex_unlock(g_metrics_lock);
+    curium_mutex_unlock(g_metrics_lock);
 }
 
-cm_string_t* cm_backend_metrics_json(void) {
-    cm_backend_metrics_t m;
-    cm_backend_get_metrics(&m);
+curium_string_t* curium_backend_metrics_json(void) {
+    curium_backend_metrics_t m;
+    curium_backend_get_metrics(&m);
     
-    return cm_string_format(
+    return curium_string_format(
         "{"
         "\"requests_total\": %llu,"
         "\"requests_active\": %llu,"
@@ -448,7 +448,7 @@ cm_string_t* cm_backend_metrics_json(void) {
  * SIMD Detection
  * ========================================================================== */
 
-int cm_cpu_has_sse2(void) {
+int curium_cpu_has_sse2(void) {
 #if defined(__x86_64__) || defined(_M_X64)
     /* x86-64 always has SSE2 */
     return 1;
@@ -458,12 +458,12 @@ int cm_cpu_has_sse2(void) {
 #endif
 }
 
-int cm_cpu_has_avx2(void) {
+int curium_cpu_has_avx2(void) {
     /* Would need CPUID check */
     return 0;
 }
 
-int cm_cpu_has_neon(void) {
+int curium_cpu_has_neon(void) {
 #if defined(__ARM_NEON) || defined(__aarch64__)
     return 1;
 #else
@@ -475,21 +475,21 @@ int cm_cpu_has_neon(void) {
  * Generational GC (stubs - would integrate with existing GC)
  * ========================================================================== */
 
-void cm_gc_enable_generational(void) {
+void curium_gc_enable_generational(void) {
     /* Would configure GC for generational mode */
 }
 
-void cm_gc_collect_minor(void) {
+void curium_gc_collect_minor(void) {
     /* Collect young generation only */
-    cm_gc_collect();
+    curium_gc_collect();
 }
 
-void cm_gc_collect_major(void) {
+void curium_gc_collect_major(void) {
     /* Full GC */
-    cm_gc_collect();
+    curium_gc_collect();
 }
 
-void cm_gc_set_max_pause_ms(int ms) {
+void curium_gc_set_max_pause_ms(int ms) {
     /* Configure max pause time target */
     (void)ms;
 }

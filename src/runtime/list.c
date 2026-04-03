@@ -1,10 +1,10 @@
-#include "cm/list.h"
-#include "cm/error.h"
+#include "curium/list.h"
+#include "curium/error.h"
 #include <stdio.h>
 #include <string.h>
 
-static cm_list_node_t* cm_list_node_new(void* data) {
-    cm_list_node_t* node = (cm_list_node_t*)cm_alloc(sizeof(cm_list_node_t), "list_node");
+static curium_list_node_t* curium_list_node_new(void* data) {
+    curium_list_node_t* node = (curium_list_node_t*)curium_alloc(sizeof(curium_list_node_t), "list_node");
     if (!node) return NULL;
     node->data = data;
     node->next = NULL;
@@ -12,12 +12,12 @@ static cm_list_node_t* cm_list_node_new(void* data) {
     return node;
 }
 
-static void cm_list_node_free(cm_list_node_t* node) {
-    if (node) cm_free(node);
+static void curium_list_node_free(curium_list_node_t* node) {
+    if (node) curium_free(node);
 }
 
-cm_list_t* cm_list_new(void) {
-    cm_list_t* list = (cm_list_t*)cm_alloc(sizeof(cm_list_t), "list");
+curium_list_t* curium_list_new(void) {
+    curium_list_t* list = (curium_list_t*)curium_alloc(sizeof(curium_list_t), "list");
     if (!list) return NULL;
     list->head = NULL;
     list->tail = NULL;
@@ -27,16 +27,16 @@ cm_list_t* cm_list_new(void) {
     return list;
 }
 
-void cm_list_free(cm_list_t* list) {
+void curium_list_free(curium_list_t* list) {
     if (!list) return;
-    cm_list_clear(list);
-    cm_free(list);
+    curium_list_clear(list);
+    curium_free(list);
 }
 
-int cm_list_append(cm_list_t* list, void* data) {
+int curium_list_append(curium_list_t* list, void* data) {
     if (!list) return -1;
     
-    cm_list_node_t* node = cm_list_node_new(data);
+    curium_list_node_t* node = curium_list_node_new(data);
     if (!node) return -1;
     
     if (list->tail) {
@@ -50,10 +50,10 @@ int cm_list_append(cm_list_t* list, void* data) {
     return 0;
 }
 
-int cm_list_prepend(cm_list_t* list, void* data) {
+int curium_list_prepend(curium_list_t* list, void* data) {
     if (!list) return -1;
     
-    cm_list_node_t* node = cm_list_node_new(data);
+    curium_list_node_t* node = curium_list_node_new(data);
     if (!node) return -1;
     
     if (list->head) {
@@ -67,10 +67,10 @@ int cm_list_prepend(cm_list_t* list, void* data) {
     return 0;
 }
 
-int cm_list_remove(cm_list_t* list, void* data) {
+int curium_list_remove(curium_list_t* list, void* data) {
     if (!list) return -1;
     
-    cm_list_node_t* current = list->head;
+    curium_list_node_t* current = list->head;
     while (current) {
         if (current->data == data) {
             if (current->prev) {
@@ -83,7 +83,7 @@ int cm_list_remove(cm_list_t* list, void* data) {
             } else {
                 list->tail = current->prev;
             }
-            cm_list_node_free(current);
+            curium_list_node_free(current);
             list->count--;
             return 0;
         }
@@ -92,10 +92,10 @@ int cm_list_remove(cm_list_t* list, void* data) {
     return -1;
 }
 
-int cm_list_remove_at(cm_list_t* list, size_t index) {
+int curium_list_remove_at(curium_list_t* list, size_t index) {
     if (!list || index >= list->count) return -1;
     
-    cm_list_node_t* current = list->head;
+    curium_list_node_t* current = list->head;
     for (size_t i = 0; i < index && current; i++) {
         current = current->next;
     }
@@ -112,18 +112,18 @@ int cm_list_remove_at(cm_list_t* list, size_t index) {
     } else {
         list->tail = current->prev;
     }
-    cm_list_node_free(current);
+    curium_list_node_free(current);
     list->count--;
     return 0;
 }
 
-void* cm_list_get(cm_list_t* list, size_t index) {
+void* curium_list_get(curium_list_t* list, size_t index) {
     if (!list || index >= list->count) {
-        cm_error_set(CM_ERROR_OUT_OF_BOUNDS, "list index out of bounds");
+        curium_error_set(CURIUM_ERROR_OUT_OF_BOUNDS, "list index out of bounds");
         return NULL;
     }
     
-    cm_list_node_t* current = list->head;
+    curium_list_node_t* current = list->head;
     for (size_t i = 0; i < index && current; i++) {
         current = current->next;
     }
@@ -131,13 +131,13 @@ void* cm_list_get(cm_list_t* list, size_t index) {
     return current ? current->data : NULL;
 }
 
-int cm_list_set(cm_list_t* list, size_t index, void* data) {
+int curium_list_set(curium_list_t* list, size_t index, void* data) {
     if (!list || index >= list->count) {
-        cm_error_set(CM_ERROR_OUT_OF_BOUNDS, "list index out of bounds");
+        curium_error_set(CURIUM_ERROR_OUT_OF_BOUNDS, "list index out of bounds");
         return -1;
     }
     
-    cm_list_node_t* current = list->head;
+    curium_list_node_t* current = list->head;
     for (size_t i = 0; i < index && current; i++) {
         current = current->next;
     }
@@ -147,10 +147,10 @@ int cm_list_set(cm_list_t* list, size_t index, void* data) {
     return 0;
 }
 
-long cm_list_index_of(cm_list_t* list, void* data) {
+long curium_list_index_of(curium_list_t* list, void* data) {
     if (!list) return -1;
     
-    cm_list_node_t* current = list->head;
+    curium_list_node_t* current = list->head;
     long index = 0;
     while (current) {
         if (current->data == data) return index;
@@ -160,25 +160,25 @@ long cm_list_index_of(cm_list_t* list, void* data) {
     return -1;
 }
 
-int cm_list_contains(cm_list_t* list, void* data) {
-    return cm_list_index_of(list, data) >= 0;
+int curium_list_contains(curium_list_t* list, void* data) {
+    return curium_list_index_of(list, data) >= 0;
 }
 
-size_t cm_list_size(cm_list_t* list) {
+size_t curium_list_size(curium_list_t* list) {
     return list ? list->count : 0;
 }
 
-int cm_list_empty(cm_list_t* list) {
+int curium_list_empty(curium_list_t* list) {
     return !list || list->count == 0;
 }
 
-void cm_list_clear(cm_list_t* list) {
+void curium_list_clear(curium_list_t* list) {
     if (!list) return;
     
-    cm_list_node_t* current = list->head;
+    curium_list_node_t* current = list->head;
     while (current) {
-        cm_list_node_t* next = current->next;
-        cm_list_node_free(current);
+        curium_list_node_t* next = current->next;
+        curium_list_node_free(current);
         current = next;
     }
     list->head = NULL;
@@ -186,10 +186,10 @@ void cm_list_clear(cm_list_t* list) {
     list->count = 0;
 }
 
-void cm_list_foreach(cm_list_t* list, cm_list_iter_cb callback, void* userdata) {
+void curium_list_foreach(curium_list_t* list, curium_list_iter_cb callback, void* userdata) {
     if (!list || !callback) return;
     
-    cm_list_node_t* current = list->head;
+    curium_list_node_t* current = list->head;
     size_t index = 0;
     while (current) {
         callback(current->data, index++, userdata);
@@ -197,27 +197,27 @@ void cm_list_foreach(cm_list_t* list, cm_list_iter_cb callback, void* userdata) 
     }
 }
 
-void cm_list_print(cm_list_t* list, cm_list_to_string_fn to_string) {
+void curium_list_print(curium_list_t* list, curium_list_to_string_fn to_string) {
     if (!list) {
         printf("list: null\n");
         return;
     }
     
     printf("list[%zu] { ", list->count);
-    cm_list_node_t* current = list->head;
+    curium_list_node_t* current = list->head;
     int first = 1;
     while (current) {
         if (!first) printf(", ");
         first = 0;
         
         if (to_string && current->data) {
-            cm_string_t* str = to_string(current->data);
+            curium_string_t* str = to_string(current->data);
             if (str && str->data) {
                 printf("%s", str->data);
             } else {
                 printf("null");
             }
-            if (str) cm_string_free(str);
+            if (str) curium_string_free(str);
         } else {
             printf("%p", current->data);
         }

@@ -9,9 +9,9 @@
  * No shell is ever invoked, so user-supplied arguments cannot
  * contain shell injection payloads.
  */
-#include "cm/cmd.h"
-#include "cm/memory.h"
-#include "cm/error.h"
+#include "curium/cmd.h"
+#include "curium/memory.h"
+#include "curium/error.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,10 +20,10 @@
 /*  Internal structure                                                  */
 /* ------------------------------------------------------------------ */
 
-#define CM_CMD_MAX_ARGS 256
+#define CURIUM_CMD_MAX_ARGS 256
 
-struct cm_cmd {
-    const char* argv[CM_CMD_MAX_ARGS + 1]; /* NULL-terminated arg array  */
+struct curium_cmd {
+    const char* argv[CURIUM_CMD_MAX_ARGS + 1]; /* NULL-terminated arg array  */
     int         argc;                       /* current argument count     */
 };
 
@@ -31,35 +31,35 @@ struct cm_cmd {
 /*  Common helpers                                                      */
 /* ------------------------------------------------------------------ */
 
-cm_cmd_t* cm_cmd_new(const char* program) {
+curium_cmd_t* curium_cmd_new(const char* program) {
     if (!program) return NULL;
-    cm_cmd_t* cmd = (cm_cmd_t*)cm_alloc(sizeof(cm_cmd_t), "cm_cmd");
+    curium_cmd_t* cmd = (curium_cmd_t*)curium_alloc(sizeof(curium_cmd_t), "curium_cmd");
     if (!cmd) return NULL;
-    memset(cmd, 0, sizeof(cm_cmd_t));
+    memset(cmd, 0, sizeof(curium_cmd_t));
     cmd->argv[0] = program;
     cmd->argc    = 1;
     return cmd;
 }
 
-void cm_cmd_arg(cm_cmd_t* cmd, const char* arg) {
+void curium_cmd_arg(curium_cmd_t* cmd, const char* arg) {
     if (!cmd || !arg) return;
-    if (cmd->argc >= CM_CMD_MAX_ARGS) {
-        cm_error_set(CM_ERROR_OVERFLOW, "cm_cmd: too many arguments (max 256)");
+    if (cmd->argc >= CURIUM_CMD_MAX_ARGS) {
+        curium_error_set(CURIUM_ERROR_OVERFLOW, "curium_cmd: too many arguments (max 256)");
         return;
     }
     cmd->argv[cmd->argc++] = arg;
     cmd->argv[cmd->argc]   = NULL; /* keep array NULL-terminated */
 }
 
-void cm_cmd_free(cm_cmd_t* cmd) {
-    if (cmd) cm_free(cmd);
+void curium_cmd_free(curium_cmd_t* cmd) {
+    if (cmd) curium_free(cmd);
 }
 
-void cm_cmd_result_free(cm_cmd_result_t* r) {
+void curium_cmd_result_free(curium_cmd_result_t* r) {
     if (!r) return;
-    if (r->stdout_output) cm_string_free(r->stdout_output);
-    if (r->stderr_output) cm_string_free(r->stderr_output);
-    cm_free(r);
+    if (r->stdout_output) curium_string_free(r->stdout_output);
+    if (r->stderr_output) curium_string_free(r->stderr_output);
+    curium_free(r);
 }
 
 /* ------------------------------------------------------------------ */
@@ -114,14 +114,14 @@ static char* win_build_cmdline(const char* const* argv) {
     return line;
 }
 
-cm_cmd_result_t* cm_cmd_run(cm_cmd_t* cmd) {
+curium_cmd_result_t* curium_cmd_run(curium_cmd_t* cmd) {
     if (!cmd || cmd->argc == 0) return NULL;
 
-    cm_cmd_result_t* result = (cm_cmd_result_t*)cm_alloc(sizeof(cm_cmd_result_t), "cm_cmd_result");
+    curium_cmd_result_t* result = (curium_cmd_result_t*)curium_alloc(sizeof(curium_cmd_result_t), "curium_cmd_result");
     if (!result) return NULL;
     result->exit_code     = -1;
-    result->stdout_output = cm_string_new("");
-    result->stderr_output = cm_string_new("");
+    result->stdout_output = curium_string_new("");
+    result->stderr_output = curium_string_new("");
 
     SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
     HANDLE stdout_r, stdout_w;
@@ -129,7 +129,7 @@ cm_cmd_result_t* cm_cmd_run(cm_cmd_t* cmd) {
 
     if (!CreatePipe(&stdout_r, &stdout_w, &sa, 0) ||
         !CreatePipe(&stderr_r, &stderr_w, &sa, 0)) {
-        cm_error_set(CM_ERROR_IO, "cm_cmd: CreatePipe failed");
+        curium_error_set(CURIUM_ERROR_IO, "curium_cmd: CreatePipe failed");
         return result;
     }
 
@@ -165,7 +165,7 @@ cm_cmd_result_t* cm_cmd_run(cm_cmd_t* cmd) {
     CloseHandle(stderr_w);
 
     if (!ok) {
-        cm_error_set(CM_ERROR_IO, "cm_cmd: CreateProcess failed");
+        curium_error_set(CURIUM_ERROR_IO, "curium_cmd: CreateProcess failed");
         CloseHandle(stdout_r);
         CloseHandle(stderr_r);
         return result;
@@ -187,8 +187,8 @@ cm_cmd_result_t* cm_cmd_run(cm_cmd_t* cmd) {
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 
-    if (out) { cm_string_set(result->stdout_output, out); free(out); }
-    if (err) { cm_string_set(result->stderr_output, err); free(err); }
+    if (out) { curium_string_set(result->stdout_output, out); free(out); }
+    if (err) { curium_string_set(result->stderr_output, err); free(err); }
 
     return result;
 }
@@ -224,25 +224,25 @@ static char* unix_read_fd(int fd) {
     return buf;
 }
 
-cm_cmd_result_t* cm_cmd_run(cm_cmd_t* cmd) {
+curium_cmd_result_t* curium_cmd_run(curium_cmd_t* cmd) {
     if (!cmd || cmd->argc == 0) return NULL;
 
-    cm_cmd_result_t* result = (cm_cmd_result_t*)cm_alloc(sizeof(cm_cmd_result_t), "cm_cmd_result");
+    curium_cmd_result_t* result = (curium_cmd_result_t*)curium_alloc(sizeof(curium_cmd_result_t), "curium_cmd_result");
     if (!result) return NULL;
     result->exit_code     = -1;
-    result->stdout_output = cm_string_new("");
-    result->stderr_output = cm_string_new("");
+    result->stdout_output = curium_string_new("");
+    result->stderr_output = curium_string_new("");
 
     int stdout_pipe[2], stderr_pipe[2];
     if (pipe(stdout_pipe) < 0 || pipe(stderr_pipe) < 0) {
-        cm_error_set(CM_ERROR_IO, "cm_cmd: pipe() failed");
+        curium_error_set(CURIUM_ERROR_IO, "curium_cmd: pipe() failed");
         return result;
     }
 
     pid_t pid = fork();
 
     if (pid < 0) {
-        cm_error_set(CM_ERROR_IO, "cm_cmd: fork() failed");
+        curium_error_set(CURIUM_ERROR_IO, "curium_cmd: fork() failed");
         close(stdout_pipe[0]); close(stdout_pipe[1]);
         close(stderr_pipe[0]); close(stderr_pipe[1]);
         return result;
@@ -279,8 +279,8 @@ cm_cmd_result_t* cm_cmd_run(cm_cmd_t* cmd) {
     waitpid(pid, &status, 0);
     result->exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 
-    if (out) { cm_string_set(result->stdout_output, out); free(out); }
-    if (err) { cm_string_set(result->stderr_output, err); free(err); }
+    if (out) { curium_string_set(result->stdout_output, out); free(out); }
+    if (err) { curium_string_set(result->stderr_output, err); free(err); }
 
     return result;
 }

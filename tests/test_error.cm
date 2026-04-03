@@ -1,0 +1,21 @@
+fn test_throw() -> Result<string, string> {
+    throw "This is an error from throw!";
+    return Ok("42");
+}
+
+fn test_try() -> Result<string, string> {
+    let x: string = test_throw()?;
+    println("Should not print");
+    return Ok(x);
+}
+
+fn main() {
+    try {
+        println("Calling ِtest_try...");
+        test_try();
+        println("Should not reach here");
+    } catch (e) {
+        println("Caught error!");
+        println(e);
+    }
+}

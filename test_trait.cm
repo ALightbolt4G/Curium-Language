@@ -1,0 +1,13 @@
+trait Printable {
+    fn display(self: ^Self) -> string;
+}
+
+struct User {
+    name: string;
+}
+
+impl Printable for User {
+    fn display(self: ^User) -> string {
+        return "Hello";
+    }
+}

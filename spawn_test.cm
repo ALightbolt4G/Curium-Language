@@ -1,0 +1,7 @@
+fn main() {
+    let t = spawn {
+        println("Hello from spawned thread!");
+    };
+    println("Hello from main thread!");
+    thread_join(t);
+}

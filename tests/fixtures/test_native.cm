@@ -1,4 +1,4 @@
-// test_native.cm - Test native API features
+// test_native.curium - Test native API features
 
 require("public_html/");
 
@@ -19,6 +19,6 @@ gc_collect();
 
 // HTTP server
 c {
-    cm_app_get("/", cm_serve_index);
-    cm_app_listen(8080);
+    curium_app_get("/", curium_serve_index);
+    curium_app_listen(8080);
 }

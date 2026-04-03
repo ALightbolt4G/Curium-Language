@@ -1,0 +1,7 @@
+import "tests/math.curium";
+
+fn main() {
+    let result: int = add(5, 10);
+    // Note: there is no type inference for add yet, wait print doesn't support int directly.
+    /* wait, print macro in c handles strings */
+}

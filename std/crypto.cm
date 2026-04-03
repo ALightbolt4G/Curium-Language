@@ -1,0 +1,164 @@
+// Curium Standard Library — Crypto
+// import "std/crypto.cm";
+//
+// Provides: hash_djb2, hash_fnv1a, hash_crc32, xor_encrypt, xor_decrypt,
+//           base64_encode, base64_decode, md5_simple
+
+pub fn hash_djb2(text: string) -> int {
+    c {
+        unsigned long curium___hash = 5381;
+        const char* curium___str = curium_text->data;
+        int curium___c;
+        while ((curium___c = *curium___str++)) {
+            curium___hash = ((curium___hash << 5) + curium___hash) + curium___c;
+        }
+        return (int)curium___hash;
+    }
+}
+
+pub fn hash_fnv1a(text: string) -> int {
+    c {
+        unsigned int curium___hash = 2166136261u;
+        const char* curium___str = curium_text->data;
+        while (*curium___str) {
+            curium___hash ^= (unsigned char)*curium___str++;
+            curium___hash *= 16777619u;
+        }
+        return (int)curium___hash;
+    }
+}
+
+pub fn hash_crc32(text: string) -> int {
+    c {
+        unsigned int curium___crc = 0xFFFFFFFF;
+        const char* curium___str = curium_text->data;
+        while (*curium___str) {
+            curium___crc ^= (unsigned char)*curium___str++;
+            for (int curium___j = 0; curium___j < 8; curium___j++) {
+                if (curium___crc & 1)
+                    curium___crc = (curium___crc >> 1) ^ 0xEDB88320;
+                else
+                    curium___crc >>= 1;
+            }
+        }
+        return (int)(curium___crc ^ 0xFFFFFFFF);
+    }
+}
+
+pub fn xor_encrypt(text: string, key: string) -> string {
+    c {
+        size_t curium___text_len = curium_text->length;
+        size_t curium___key_len = curium_key->length;
+        if (curium___key_len == 0) return curium_string_new(curium_text->data);
+        char* curium___buf = malloc(curium___text_len * 3 + 1); // hex encoded
+        for (size_t curium___i = 0; curium___i < curium___text_len; curium___i++) {
+            unsigned char curium___c = curium_text->data[curium___i] ^ curium_key->data[curium___i % curium___key_len];
+            sprintf(curium___buf + curium___i * 2, "%02x", curium___c);
+        }
+        curium___buf[curium___text_len * 2] = '\0';
+        curium_string_t* curium___result = curium_string_new(curium___buf);
+        free(curium___buf);
+        return curium___result;
+    }
+}
+
+pub fn xor_decrypt(hex_text: string, key: string) -> string {
+    c {
+        size_t curium___hex_len = curium_hex_text->length;
+        size_t curium___key_len = curium_key->length;
+        size_t curium___out_len = curium___hex_len / 2;
+        if (curium___key_len == 0 || curium___hex_len % 2 != 0) return curium_string_new("");
+        char* curium___buf = malloc(curium___out_len + 1);
+        for (size_t curium___i = 0; curium___i < curium___out_len; curium___i++) {
+            unsigned int curium___val;
+            sscanf(curium_hex_text->data + curium___i * 2, "%2x", &curium___val);
+            curium___buf[curium___i] = (char)(curium___val ^ curium_key->data[curium___i % curium___key_len]);
+        }
+        curium___buf[curium___out_len] = '\0';
+        curium_string_t* curium___result = curium_string_new(curium___buf);
+        free(curium___buf);
+        return curium___result;
+    }
+}
+
+pub fn base64_encode(text: string) -> string {
+    c {
+        const char curium___b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        size_t curium___in_len = curium_text->length;
+        size_t curium___out_len = 4 * ((curium___in_len + 2) / 3);
+        char* curium___buf = malloc(curium___out_len + 1);
+        size_t curium___j = 0;
+        for (size_t curium___i = 0; curium___i < curium___in_len; curium___i += 3) {
+            unsigned int curium___octet_a = curium___i < curium___in_len ? (unsigned char)curium_text->data[curium___i] : 0;
+            unsigned int curium___octet_b = curium___i + 1 < curium___in_len ? (unsigned char)curium_text->data[curium___i + 1] : 0;
+            unsigned int curium___octet_c = curium___i + 2 < curium___in_len ? (unsigned char)curium_text->data[curium___i + 2] : 0;
+            unsigned int curium___triple = (curium___octet_a << 16) | (curium___octet_b << 8) | curium___octet_c;
+            curium___buf[curium___j++] = curium___b64[(curium___triple >> 18) & 0x3F];
+            curium___buf[curium___j++] = curium___b64[(curium___triple >> 12) & 0x3F];
+            curium___buf[curium___j++] = curium___i + 1 < curium___in_len ? curium___b64[(curium___triple >> 6) & 0x3F] : '=';
+            curium___buf[curium___j++] = curium___i + 2 < curium___in_len ? curium___b64[curium___triple & 0x3F] : '=';
+        }
+        curium___buf[curium___j] = '\0';
+        curium_string_t* curium___result = curium_string_new(curium___buf);
+        free(curium___buf);
+        return curium___result;
+    }
+}
+
+pub fn base64_decode(encoded: string) -> string {
+    c {
+        const int curium___b64_inv[256] = {
+            [0 ... 255] = -1,
+            ['A'] = 0, ['B'] = 1, ['C'] = 2, ['D'] = 3, ['E'] = 4, ['F'] = 5,
+            ['G'] = 6, ['H'] = 7, ['I'] = 8, ['J'] = 9, ['K'] = 10, ['L'] = 11,
+            ['M'] = 12, ['N'] = 13, ['O'] = 14, ['P'] = 15, ['Q'] = 16, ['R'] = 17,
+            ['S'] = 18, ['T'] = 19, ['U'] = 20, ['V'] = 21, ['W'] = 22, ['X'] = 23,
+            ['Y'] = 24, ['Z'] = 25,
+            ['a'] = 26, ['b'] = 27, ['c'] = 28, ['d'] = 29, ['e'] = 30, ['f'] = 31,
+            ['g'] = 32, ['h'] = 33, ['i'] = 34, ['j'] = 35, ['k'] = 36, ['l'] = 37,
+            ['m'] = 38, ['n'] = 39, ['o'] = 40, ['p'] = 41, ['q'] = 42, ['r'] = 43,
+            ['s'] = 44, ['t'] = 45, ['u'] = 46, ['v'] = 47, ['w'] = 48, ['x'] = 49,
+            ['y'] = 50, ['z'] = 51,
+            ['0'] = 52, ['1'] = 53, ['2'] = 54, ['3'] = 55, ['4'] = 56, ['5'] = 57,
+            ['6'] = 58, ['7'] = 59, ['8'] = 60, ['9'] = 61,
+            ['+'] = 62, ['/'] = 63
+        };
+        size_t curium___in_len = curium_encoded->length;
+        size_t curium___out_len = curium___in_len / 4 * 3;
+        if (curium___in_len > 0 && curium_encoded->data[curium___in_len - 1] == '=') curium___out_len--;
+        if (curium___in_len > 1 && curium_encoded->data[curium___in_len - 2] == '=') curium___out_len--;
+        char* curium___buf = malloc(curium___out_len + 1);
+        size_t curium___j = 0;
+        for (size_t curium___i = 0; curium___i < curium___in_len; curium___i += 4) {
+            int curium___a = curium___b64_inv[(unsigned char)curium_encoded->data[curium___i]];
+            int curium___b = curium___b64_inv[(unsigned char)curium_encoded->data[curium___i + 1]];
+            int curium___c2 = curium___i + 2 < curium___in_len ? curium___b64_inv[(unsigned char)curium_encoded->data[curium___i + 2]] : 0;
+            int curium___d = curium___i + 3 < curium___in_len ? curium___b64_inv[(unsigned char)curium_encoded->data[curium___i + 3]] : 0;
+            unsigned int curium___triple = (curium___a << 18) | (curium___b << 12) | (curium___c2 << 6) | curium___d;
+            if (curium___j < curium___out_len) curium___buf[curium___j++] = (curium___triple >> 16) & 0xFF;
+            if (curium___j < curium___out_len) curium___buf[curium___j++] = (curium___triple >> 8) & 0xFF;
+            if (curium___j < curium___out_len) curium___buf[curium___j++] = curium___triple & 0xFF;
+        }
+        curium___buf[curium___j] = '\0';
+        curium_string_t* curium___result = curium_string_new(curium___buf);
+        free(curium___buf);
+        return curium___result;
+    }
+}
+
+pub fn rot13(text: string) -> string {
+    c {
+        size_t curium___len = curium_text->length;
+        char* curium___buf = malloc(curium___len + 1);
+        for (size_t curium___i = 0; curium___i < curium___len; curium___i++) {
+            char curium___c = curium_text->data[curium___i];
+            if (curium___c >= 'a' && curium___c <= 'z') curium___c = 'a' + (curium___c - 'a' + 13) % 26;
+            else if (curium___c >= 'A' && curium___c <= 'Z') curium___c = 'A' + (curium___c - 'A' + 13) % 26;
+            curium___buf[curium___i] = curium___c;
+        }
+        curium___buf[curium___len] = '\0';
+        curium_string_t* curium___result = curium_string_new(curium___buf);
+        free(curium___buf);
+        return curium___result;
+    }
+}

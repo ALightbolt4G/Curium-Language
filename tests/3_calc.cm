@@ -1,0 +1,16 @@
+fn main() {
+    let a: int = 10;
+    let b: int = 5;
+    let op: int = 3;
+
+    println("Calculating:");
+    if (op == 1) {
+        println(a + b);
+    } else if (op == 2) {
+        println(a - b);
+    } else if (op == 3) {
+        println(a * b);
+    } else {
+        println(0);
+    }
+}

@@ -1,0 +1,28 @@
+// Curium Standard Library — String Utilities
+// import "string_utils.cm";
+//
+// Provides: str_len, str_concat, str_repeat
+
+pub fn str_len(s: string) -> i32 {
+    c {
+        return (int)(curium_s ? curium_s->length : 0);
+    }
+}
+
+pub fn str_concat(a: string, b: string) -> string {
+    c {
+        curium_string_t* curium___result = curium_string_new(curium_a->data);
+        curium_string_append(curium___result, curium_b->data);
+        return curium___result;
+    }
+}
+
+pub fn str_repeat(s: string, n: i32) -> string {
+    c {
+        curium_string_t* curium___result = curium_string_new("");
+        for (int curium___i = 0; curium___i < curium_n; curium___i++) {
+            curium_string_append(curium___result, curium_s->data);
+        }
+        return curium___result;
+    }
+}

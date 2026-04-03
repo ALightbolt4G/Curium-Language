@@ -1,0 +1,14 @@
+fn main() {
+    println("--- Madlibs Game ---");
+    let name: string = "Alice";
+    let adj: string = "brave";
+    let noun: string = "knight";
+    
+    print("Once upon a time, there was a ");
+    print(adj);
+    print(" ");
+    print(noun);
+    print(" named ");
+    print(name);
+    println(".");
+}

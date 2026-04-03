@@ -1,0 +1,129 @@
+// Curium Standard Library — FS (File System)
+// import "std/fs.cm";
+//
+// Provides: fs_read, fs_write, fs_exists, fs_delete, fs_rename, fs_copy,
+//           fs_size, fs_mkdir, fs_rmdir, fs_append, fs_read_lines
+
+pub fn fs_read(path: string) -> string {
+    c {
+        curium_string_t* curium___result = curium_file_read(curium_path->data);
+        if (curium___result) return curium___result;
+        return curium_string_new("");
+    }
+}
+
+pub fn fs_write(path: string, content: string) -> bool {
+    c {
+        return curium_file_write(curium_path->data, curium_content->data);
+    }
+}
+
+pub fn fs_exists(path: string) -> bool {
+    c {
+        return curium_file_exists(curium_path->data);
+    }
+}
+
+pub fn fs_delete(path: string) -> bool {
+    c {
+        return remove(curium_path->data) == 0;
+    }
+}
+
+pub fn fs_rename(old_path: string, new_path: string) -> bool {
+    c {
+        return rename(curium_old_path->data, curium_new_path->data) == 0;
+    }
+}
+
+pub fn fs_copy(src: string, dst: string) -> bool {
+    c {
+        FILE* curium___in = fopen(curium_src->data, "rb");
+        if (!curium___in) return 0;
+        FILE* curium___out = fopen(curium_dst->data, "wb");
+        if (!curium___out) { fclose(curium___in); return 0; }
+        char curium___buf[4096];
+        size_t curium___n;
+        while ((curium___n = fread(curium___buf, 1, sizeof(curium___buf), curium___in)) > 0) {
+            fwrite(curium___buf, 1, curium___n, curium___out);
+        }
+        fclose(curium___in);
+        fclose(curium___out);
+        return 1;
+    }
+}
+
+pub fn fs_size(path: string) -> int {
+    c {
+        FILE* curium___f = fopen(curium_path->data, "rb");
+        if (!curium___f) return -1;
+        fseek(curium___f, 0, SEEK_END);
+        int curium___size = (int)ftell(curium___f);
+        fclose(curium___f);
+        return curium___size;
+    }
+}
+
+pub fn fs_append(path: string, content: string) -> bool {
+    c {
+        FILE* curium___f = fopen(curium_path->data, "a");
+        if (!curium___f) return 0;
+        fprintf(curium___f, "%s", curium_content->data);
+        fclose(curium___f);
+        return 1;
+    }
+}
+
+pub fn fs_mkdir(path: string) -> bool {
+    c {
+        #ifdef _WIN32
+            return _mkdir(curium_path->data) == 0;
+        #else
+            return mkdir(curium_path->data, 0755) == 0;
+        #endif
+    }
+}
+
+pub fn fs_rmdir(path: string) -> bool {
+    c {
+        #ifdef _WIN32
+            return _rmdir(curium_path->data) == 0;
+        #else
+            return rmdir(curium_path->data) == 0;
+        #endif
+    }
+}
+
+pub fn fs_is_dir(path: string) -> bool {
+    c {
+        #ifdef _WIN32
+            #include <sys/stat.h>
+            struct stat curium___st;
+            if (stat(curium_path->data, &curium___st) != 0) return 0;
+            return (curium___st.st_mode & _S_IFDIR) != 0;
+        #else
+            #include <sys/stat.h>
+            struct stat curium___st;
+            if (stat(curium_path->data, &curium___st) != 0) return 0;
+            return S_ISDIR(curium___st.st_mode);
+        #endif
+    }
+}
+
+pub fn fs_ext(path: string) -> string {
+    c {
+        const char* curium___dot = strrchr(curium_path->data, '.');
+        if (curium___dot) return curium_string_new(curium___dot);
+        return curium_string_new("");
+    }
+}
+
+pub fn fs_basename(path: string) -> string {
+    c {
+        const char* curium___slash = strrchr(curium_path->data, '/');
+        const char* curium___bslash = strrchr(curium_path->data, '\\');
+        const char* curium___last = curium___slash > curium___bslash ? curium___slash : curium___bslash;
+        if (curium___last) return curium_string_new(curium___last + 1);
+        return curium_string_new(curium_path->data);
+    }
+}

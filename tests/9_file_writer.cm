@@ -1,0 +1,15 @@
+import "std/io.cm";
+
+fn main() {
+    let path = "test_output.txt";
+    let content = "Hello from Curium file writer!";
+    
+    let ok = write_file(path, content);
+    if (ok) {
+        println("File written successfully.");
+        let read = read_file(path);
+        println("Read back: " + read);
+    } else {
+        println("Failed to write.");
+    }
+}

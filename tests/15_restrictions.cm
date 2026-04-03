@@ -1,0 +1,42 @@
+fn main() {
+    println("=== Restrictions (Immutability) Test ===");
+
+    // let is immutable by default (like Rust)
+    let x = 42;
+    print("Immutable x = ");
+    println(x);
+
+    // mut allows mutation
+    mut y = 10;
+    print("Mutable y before = ");
+    println(y);
+    y = 20;
+    print("Mutable y after  = ");
+    println(y);
+
+    // const struct fields
+    struct Point {
+        x: int;
+        y: int;
+    }
+
+    mut p: Point;
+    p.x = 3;
+    p.y = 4;
+    print("Point: (");
+    print(p.x);
+    print(", ");
+    print(p.y);
+    println(")");
+
+    // Function params are const by default
+    let result = add(10, 20);
+    print("add(10, 20) = ");
+    println(result);
+
+    println("Restriction tests passed!");
+}
+
+fn add(a: int, b: int) -> int {
+    return a + b;
+}

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(CMLibrary VERSION 5.0.0 LANGUAGES C)
+project(Curium VERSION 4.0.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED True)
@@ -10,7 +10,7 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 endif()
 
 # Library sources
-set(CM_RUNTIME_SOURCES
+set(CURIUM_RUNTIME_SOURCES
     src/runtime/memory.c
     src/runtime/error.c
     src/runtime/error_detail.c
@@ -37,7 +37,7 @@ set(CM_RUNTIME_SOURCES
 )
 
 # Core library target (static lib)
-add_library(cm STATIC ${CM_RUNTIME_SOURCES})
+add_library(cm STATIC ${CURIUM_RUNTIME_SOURCES})
 target_include_directories(cm PUBLIC include)
 
 # Platform specific linking
@@ -48,29 +48,29 @@ endif()
 # Tests
 enable_testing()
 
-add_executable(cm_test tests/main_test.c)
-target_link_libraries(cm_test cm)
+add_executable(curium_test tests/main_test.c)
+target_link_libraries(curium_test cm)
 
-add_test(NAME CM_CoreTest COMMAND cm_test)
+add_test(NAME CURIUM_CoreTest COMMAND curium_test)
 
 # Compiler frontend/codegen smoke test
-add_executable(cm_compiler_test tests/cm_compiler_test.c)
-target_link_libraries(cm_compiler_test cm_compiler cm)
-add_test(NAME CM_CompilerTest COMMAND cm_compiler_test)
-set_tests_properties(CM_CompilerTest PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+add_executable(curium_compiler_test tests/curium_compiler_test.c)
+target_link_libraries(curium_compiler_test curium_compiler cm)
+add_test(NAME CURIUM_CompilerTest COMMAND curium_compiler_test)
+set_tests_properties(CURIUM_CompilerTest PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
 # Backend server example
-add_executable(cm_server server.c)
-target_link_libraries(cm_server cm)
+add_executable(curium_server server.c)
+target_link_libraries(curium_server cm)
 
 if(WIN32)
-    target_link_libraries(cm_server ws2_32)
+    target_link_libraries(curium_server ws2_32)
 endif()
 
 # CM Language Compiler CLI
 # Use an internal target name to avoid clashing with the 'cm' static library.
 # Compiler sources
-set(CM_COMPILER_SOURCES
+set(CURIUM_COMPILER_SOURCES
     src/compiler/lexer/lexer.c
     src/compiler/lexer/lexer_v2.c
     src/compiler/ast/ast.c
@@ -79,35 +79,40 @@ set(CM_COMPILER_SOURCES
     src/compiler/parser/parser_v2.c
     src/compiler/codegen/codegen_v2.c
     src/compiler/tokens/tokens.c
-    src/cm_codegen.c
-    src/cm_highlight.c
-    src/compiler/safety/cm_safety.c
+    src/compiler/typecheck.c
+    src/curium_codegen.c
+    src/curium_highlight.c
+    src/compiler/safety/curium_safety.c
 )
 # Compiler library
-add_library(cm_compiler STATIC ${CM_COMPILER_SOURCES})
-target_link_libraries(cm_compiler cm)
-target_include_directories(cm_compiler PUBLIC include src)
+add_library(curium_compiler STATIC ${CURIUM_COMPILER_SOURCES})
+target_link_libraries(curium_compiler cm)
+target_include_directories(curium_compiler PUBLIC include src)
 
 # CLI executable
-add_executable(cm_cli src/cm_cli.c)
-target_link_libraries(cm_cli cm_compiler cm)
+add_executable(curium_cli src/curium_cli.c)
+target_link_libraries(curium_cli curium_compiler cm)
 
-# Name the resulting executable 'cm' and copy it to the project root so you can run:
-#   cm main.cm app
-set_target_properties(cm_cli PROPERTIES RUNTIME_OUTPUT_NAME "cm")
+# Name the resulting executable 'curium' and copy it to the project root
+set_target_properties(curium_cli PROPERTIES RUNTIME_OUTPUT_NAME "curium")
+
+# Package Manager CLI executable
+add_executable(cur_cli src/cur_cli.c)
+target_link_libraries(cur_cli cm)
+set_target_properties(cur_cli PROPERTIES RUNTIME_OUTPUT_NAME "cur")
 
 # Copy disabled - file is locked by running process
-# add_custom_command(TARGET cm_cli POST_BUILD
+# add_custom_command(TARGET curium_cli POST_BUILD
 #     COMMAND ${CMAKE_COMMAND} -E copy
-#         "$<TARGET_FILE:cm_cli>"
-#         "${CMAKE_SOURCE_DIR}/$<TARGET_FILE_NAME:cm_cli>"
+#         "$<TARGET_FILE:curium_cli>"
+#         "${CMAKE_SOURCE_DIR}/$<TARGET_FILE_NAME:curium_cli>"
 #     COMMENT "Copying cm compiler to project root..."
 # )
 
 # Copy public_html next to the server executable so relative paths work
-add_custom_command(TARGET cm_server POST_BUILD
+add_custom_command(TARGET curium_server POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/public_html"
-        "$<TARGET_FILE_DIR:cm_server>/public_html"
+        "$<TARGET_FILE_DIR:curium_server>/public_html"
     COMMENT "Copying public_html to build directory..."
 )

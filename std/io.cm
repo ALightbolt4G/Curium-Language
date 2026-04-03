@@ -1,0 +1,30 @@
+// Curium Standard Library — IO
+// import "io.cm";
+//
+// Provides: read_file, write_file, file_exists, println
+
+pub fn read_file(path: string) -> string {
+    // Uses the C runtime curium_file_read via polyglot
+    c {
+        curium_string_t* curium___result = curium_file_read(curium_path->data);
+        if (curium___result) return curium___result;
+        return curium_string_new("");
+    }
+}
+
+pub fn write_file(path: string, content: string) -> bool {
+    c {
+        int curium___ok = curium_file_write(curium_path->data, curium_content->data);
+        return curium___ok;
+    }
+}
+
+pub fn file_exists(path: string) -> bool {
+    c {
+        return curium_file_exists(curium_path->data);
+    }
+}
+
+pub fn println(msg: string) {
+    print(msg);
+}
