@@ -52,7 +52,12 @@ static int curium_file_read_all(const char* path, char** out, size_t* out_len) {
         return -1;
     }
     
-    fread(*out, 1, size, f);
+    size_t bytes_read = fread(*out, 1, size, f);
+    if (bytes_read != (size_t)size) {
+        free(*out);
+        fclose(f);
+        return -1;
+    }
     (*out)[size] = '\0';
     *out_len = size;
     

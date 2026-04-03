@@ -402,7 +402,11 @@ static char* curium_doctor_read_file(const char* path, size_t* out_len) {
     char* buf = (char*)malloc((size_t)sz + 1);
     if (!buf) { fclose(f); return NULL; }
     size_t rd = fread(buf, 1, (size_t)sz, f);
-    fclose(f);
+    if (rd != (size_t)sz) {
+        free(buf);
+        fclose(f);
+        return NULL;
+    }
     buf[rd] = '\0';
     if (out_len) *out_len = rd;
     return buf;
