@@ -160,22 +160,22 @@ static void curium_signal_handler(int sig) {
             "   Object: ptr pointer unknown\n"
             "   Status: Accessed invalid memory address\n"
             "   Fix: Check for null pointer dereference or use-after-free\n\n";
-        curium_write(STDERR_FILENO, neon_err, strlen(neon_err));
+        (void)curium_write(STDERR_FILENO, neon_err, strlen(neon_err));
     } else {
         const char* header = "\n\n\xF0\x9F\x92\xA5 CRITICAL FATAL ERROR: ";
-        curium_write(STDERR_FILENO, header, strlen(header));
-        curium_write(STDERR_FILENO, sig_name, strlen(sig_name));
-        curium_write(STDERR_FILENO, "\n", 1);
+        (void)curium_write(STDERR_FILENO, header, strlen(header));
+        (void)curium_write(STDERR_FILENO, sig_name, strlen(sig_name));
+        (void)curium_write(STDERR_FILENO, "\n", 1);
         
         const char* status_msg = "   Status: ";
-        curium_write(STDERR_FILENO, status_msg, strlen(status_msg));
-        curium_write(STDERR_FILENO, status, strlen(status));
-        curium_write(STDERR_FILENO, "\n", 1);
+        (void)curium_write(STDERR_FILENO, status_msg, strlen(status_msg));
+        (void)curium_write(STDERR_FILENO, status, strlen(status));
+        (void)curium_write(STDERR_FILENO, "\n", 1);
         
         const char* fix_msg = "   Fix: ";
-        curium_write(STDERR_FILENO, fix_msg, strlen(fix_msg));
-        curium_write(STDERR_FILENO, fix, strlen(fix));
-        curium_write(STDERR_FILENO, "\n\n", 2);
+        (void)curium_write(STDERR_FILENO, fix_msg, strlen(fix_msg));
+        (void)curium_write(STDERR_FILENO, fix, strlen(fix));
+        (void)curium_write(STDERR_FILENO, "\n\n", 2);
     }
     
     _exit(1);
