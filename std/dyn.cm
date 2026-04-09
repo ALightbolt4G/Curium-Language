@@ -1,0 +1,39 @@
+// Curium Standard Library — Dynamic operators (helpers for dyn arms and fallbacks)
+// import "std/dyn.cm";
+//
+// Use inside dyn ... in (...) bodies to parse operands or format results without
+// relying only on the compiler-injected curium_x / curium_y (strtod) values.
+
+pub fn operand_f64(s: string) -> float {
+    c {
+        return (double)strtod(curium_s->data, NULL);
+    }
+}
+
+pub fn operand_i32(s: string) -> int {
+    c {
+        return (int)strtol(curium_s->data, NULL, 10);
+    }
+}
+
+pub fn op_name_eq(op: string, literal: string) -> bool {
+    c {
+        return strcmp(curium_op->data, curium_literal->data) == 0;
+    }
+}
+
+pub fn result_f64(v: float) -> string {
+    c {
+        char curium___buf[64];
+        snprintf(curium___buf, sizeof(curium___buf), "%.17g", curium_v);
+        return curium_string_new(curium___buf);
+    }
+}
+
+pub fn result_i32(v: int) -> string {
+    c {
+        char curium___buf[32];
+        snprintf(curium___buf, sizeof(curium___buf), "%d", curium_v);
+        return curium_string_new(curium___buf);
+    }
+}

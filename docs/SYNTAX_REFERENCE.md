@@ -1,128 +1,137 @@
-# 📖 Curium Syntax Reference (v4.0)
+# 📖 Curium Syntax Reference
 
-This document provides a comprehensive reference for the Curium programming language.
-
----
-
-## 🔑 Keywords
-
-| Keyword | Description |
-|---|---|
-| `let` | Declare an immutable variable. |
-| `mut` | Declare a mutable variable. |
-| `fn` | Declare a function. |
-| `if` / `else` | Conditional branching. |
-| `while` | Loop while a condition is true. |
-| `for` | Iterate over a collection (Experimental). |
-| `match` | Pattern matching on values. |
-| `return` | Exit a function and return a value. |
-| `dyn` | Define or use a dynamic operator. |
-| `try` / `catch` | Exception handling and error propagation. |
-| `throw` | Raise an error. |
-| `pub` | Mark a declaration as public (for modules). |
-| `impl` | Implement methods for a struct or trait. |
-| `struct` | Define a data structure. |
-| `enum` | Define an enumerated type. |
-| `union` | Define a tagged union. |
-| `trait` | Define an interface (Experimental). |
-| `spawn` | Spawn a new thread/task (Experimental). |
-| `gc` | Trigger manual garbage collection. |
-| `print` / `println` | Output data to the console. |
-| `input` | Fetch user input from the console. |
-| `strnum` | Special numeric-string hybrid type. |
-| `import` / `require` | Link external Curium modules. |
-| `reactor` | Defines a block with a specific memory model. |
-| `arena` | Arena allocation mode (used with `reactor`). |
-| `manual` | Manual memory management mode (used with `reactor`). |
-| `rc` | Reference counting mode (default, used with `reactor`). |
+A comprehensive, A-Z reference of Curium's syntax and keywords.
 
 ---
 
-## 🏗️ Type System
+## 1. Types & Variables
 
-### Scalar Types
-- `int` / `float`: Standard integer and double-precision float.
+### Primitive Types
+- `int`: Native integer.
+- `float`: Double-precision float.
 - `bool`: `true` or `false`.
-- `string`: UTF-8 encoded string.
-- `void`: No value.
+- `string`: RC managed string slice.
+- `strnum`: A dual-state container capable of acting as both a discrete number and a string string depending on context.
 
-### Sized Numeric Types (v4.0)
-- **Signed Integers**: `i8`, `i16`, `i32`, `i64`.
-- **Unsigned Integers**: `u8`, `u16`, `u32`, `u64`, `usize`.
-- **Floats**: `f32`, `f64`.
+### Variables
+- `let x = 10;`: Immutable explicitly.
+- `mut y = 20;`: Mutable.
 
 ### Complex Types
-- `^T`: Safe pointer to type `T`.
-- `?T`: Option type (either `Some(val)` or `None`).
-- `Result<T, E>`: Result type (either `Ok(val)` or `Err(err)`).
-- `array<T>`: Fixed-size heap array.
-- `slice<T>`: View into an array or buffer.
-- `map<K, V>`: Key-value hash map.
-- `dyn`: The dynamic 'any' type for flexible operations.
+- `^T`: Safe Reference Pointer to `T`.
+- `array<T>`: Fixed size contiguous block.
+- `map<K, V>`: HashMap wrapper.
 
 ---
 
-## ⚡ Operators
+## 2. Control Flow
 
-| Operator | Name | Description |
-|---|---|---|
-| `+`, `-`, `*`, `/` | Arithmetic | Standard math. |
-| `==`, `!=` | Equality | Compare values. |
-| `<`, `>`, `<=`, `>=` | Relational | Numeric comparisons. |
-| `&&`, `||`, `!` | Logical | Boolean operations. |
-| `&`, `|`, `^` | Bitwise | Bit-level operations. |
-| `^expr` | Address-of | Prefix operator to take a reference/pointer. |
-| `expr?` | Error Try | Propagates errors/unwraps Options. |
-| `expr ?? default` | Nil Coalescing | Returns default if expr is None/null. |
-| `->` | Return arrow | Used in function signatures. |
-| `=>` | Fat arrow | Used in `match` and `dyn` arms. |
-| `.` | Member access | Access struct fields or methods. |
-| `:` | Type colon | Specify a variable's type. |
-| `:=` | Type inference | Declare and initialize with inferred type. |
-| `$` | Macro symbol | Used in templates and fallback blocks. |
-
----
-
-## 🧠 Memory Models
-
-Curium v4.0 introduces the **Reactor** system for fine-grained memory control.
-
-### 1. Reference Counting (RC)
-The default mode. Curium uses a robust, automatic RC system to manage memory.
+### `if`/`else`
 ```cm
-reactor rc {
-    let name = "Curium";
-    // name is automatically tracked and freed.
+if condition {
+    // ...
+} else if other_cond {
+    // ...
+} else {
+    // ...
 }
 ```
 
-### 2. Arena Allocation
-Allocates all memory from a single block. Extremely fast for bulk allocations. Freed instantly when the block ends.
+### `for`
+The `for` loop dynamically understands ranges and native iterators.
 ```cm
-reactor arena(4096) {
-    // All allocations here come from a 4KB arena.
+for i in 0..10 {
+    println(i);
 }
 ```
 
-### 3. Manual Management
-Disables automatic tracking. Developers must manually manage lifetimes (Experimental).
+### `while`
 ```cm
-reactor manual {
-    let p = malloc(100);
-    free(p);
+while condition {
+    break; // or continue;
+}
+```
+
+### `match`
+Exhaustive pattern matching block:
+```cm
+match value {
+    0 => { println("Zero"); },
+    1 => { println("One"); },
+    _ => { println("Other"); }
 }
 ```
 
 ---
 
-## 🧪 Polyglot Interface
+## 3. Data Structures
 
-Curium can embed raw C code for performance-critical sections using `c { ... }`.
-
+### `struct`
+Construct records.
 ```cm
-c {
-    // Raw C99 code here
-    #include <stdio.h>
-    printf("Native C execution!\n");
+struct Point {
+    x: int;
+    y: int;
+}
+
+mut p = Point { x: 10, y: 20 };
+```
+
+### `impl` and `trait`
+Traits declare expected method signatures, and `impl` maps a trait onto a structure.
+```cm
+trait Drawable {
+    fn draw();
+}
+
+impl Drawable for Point {
+    fn draw() {
+        println("Drawing {x}, {y}");
+    }
+}
+```
+
+---
+
+## 4. Concurrent & Dynamic Mechanics
+
+### `spawn`
+Easily spin closures into active independent threads (or logical execution points depending on the compiler backend).
+```cm
+spawn {
+    println("Background task!");
+};
+```
+
+### `reactor`
+Reactor contexts are the key to high-performance Curium applications. The default context uses automatic Reference Counting. By wrapping execution in an `arena` reactor, memory is slab-allocated and wiped upon exit, costing zero atomic overheads.
+```cm
+reactor arena(2048) {
+    // 2MB allocation slab. 
+    mut ptr: ^int = new 999;
+} // Slab wiped. Memory completely freed here.
+```
+
+### `dyn`
+Dynamically resolve and call match arms dynamically during operator logic:
+```cm
+dyn action in (
+    "do" => { do_thing(); }
+) dyn($) { };
+```
+
+---
+
+## 5. Functions & Error Handling
+```cm
+fn calculate(value: int) -> Result<int, string> {
+    if value == 0 {
+        return Err("Cannot be zero");
+    }
+    return Ok(value * 2);
+}
+
+fn main() {
+    let output = calculate(10)?; // The '?' operator unpacks Ok or early returns Err.
 }
 ```

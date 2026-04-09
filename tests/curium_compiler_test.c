@@ -11,7 +11,7 @@ int main(void) {
     curium_init_error_detector();
 
     /* Front-end/codegen smoke test: emit C from a fixture .curium file. */
-    int rc = curium_emit_c_file("tests/fixtures/hello.curium", "tests/fixtures/hello_out.c");
+    int rc = curium_emit_c_file("tests/fixtures/hello.cm", "tests/fixtures/hello_out.c");
     if (rc != 0) {
         fprintf(stderr, "curium_emit_c_file failed: %s\n", curium_error_get_message());
         curium_gc_shutdown();

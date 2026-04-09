@@ -1,4 +1,4 @@
-import "tests/math.curium";
+import "tests/math.cm";
 
 fn main() {
     let result: int = add(5, 10);

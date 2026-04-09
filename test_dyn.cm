@@ -1,15 +1,21 @@
 fn main() {
-    let p: ^int = 0;
-    let s: strnum = "123";
+    mut x = 10;
+    mut y = 20;
 
-    dyn my_var = 10;
-    dyn fn user_func() {
-        print("dynamic func");
-    }
+    mut op = "max";
 
-    dyn my_op in (
-        "add" => { print(my_var); }
-    ) dyn($) {
-        print("fallback");
+    dyn op in (
+        "+" => { return x + y; },
+        "*" => { return x * y; },
+        "avg" => { return (x + y) / 2; }
+    ) dyn(op == "max") {
+        return x > y ? x : y;
+    } dyn(op == "min") {
+        return x < y ? x : y;
+    } dyn($) {
+        println("Unknown operator!");
+        return 0;
     };
+
+    println(x op y);
 }

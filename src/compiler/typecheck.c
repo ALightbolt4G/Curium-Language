@@ -536,6 +536,22 @@ static int curium_typecheck_expr(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
             return 1;
         }
         
+        case CURIUM_AST_V2_TRY_EXPR: {
+            curium_type_info_t* inner = NULL;
+            int ok = curium_typecheck_expr(ctx, expr->as.try_expr.expr, &inner);
+            
+            if (ok && inner && inner->type_node && inner->type_node->kind == CURIUM_AST_V2_TYPE_RESULT) {
+                if (out_type) {
+                    *out_type = curium_type_info_new(inner->type_node->as.type_result.ok_type, inner->is_mutable);
+                }
+            } else if (ok) {
+                curium_typecheck_report_error(ctx, expr->line, expr->column, "Must be Result type", "try expression requires a Result<T,E>");
+                ok = 0;
+            }
+            if (inner) curium_type_info_free(inner);
+            return ok;
+        }
+        
         default:
             if (out_type) *out_type = NULL;
             return 1;
@@ -859,7 +875,44 @@ curium_typecheck_ctx_t* curium_typecheck_new(const char* source_text, const char
     ctx->source_text = source_text ? source_text : "";
     ctx->file_path = file_path ? file_path : "unknown";
     
+    /* Inject standard compiler built-ins into the root scope */
+    curium_ast_v2_node_t* print_fn = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, 0, 0);
+    print_fn->as.type_fn.return_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, 0, 0);
+    print_fn->as.type_fn.return_type->as.type_named.name = curium_string_new("void");
+    curium_scope_define(ctx, ctx->current_scope, "print", curium_type_info_new(print_fn, 0));
+    
+    curium_ast_v2_node_t* println_fn = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, 0, 0);
+    println_fn->as.type_fn.return_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, 0, 0);
+    println_fn->as.type_fn.return_type->as.type_named.name = curium_string_new("void");
+    curium_scope_define(ctx, ctx->current_scope, "println", curium_type_info_new(println_fn, 0));
+
+    /* FIX #005/#006: Register all built-in / stdlib functions so that type-checking
+     * does not produce "Undefined variable" errors for standard library calls.    */
+
+    /* Helper macro-style: build a minimal TYPE_FN node and register it. */
+    #define CURIUM_REGISTER_BUILTIN(nm, ret_str)                                       \
+    do {                                                                               \
+        curium_ast_v2_node_t* _fn = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, 0, 0);  \
+        _fn->as.type_fn.return_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, 0, 0); \
+        _fn->as.type_fn.return_type->as.type_named.name = curium_string_new(ret_str); \
+        curium_scope_define(ctx, ctx->current_scope, (nm), curium_type_info_new(_fn, 0)); \
+    } while(0)
+
+    CURIUM_REGISTER_BUILTIN("input",    "string");  /* input() -> string         */
+    CURIUM_REGISTER_BUILTIN("len",      "int");     /* len(collection) -> int    */
+    CURIUM_REGISTER_BUILTIN("malloc",   "void");    /* malloc(n) -> ^void        */
+    CURIUM_REGISTER_BUILTIN("free",     "void");    /* free(ptr) -> void         */
+    CURIUM_REGISTER_BUILTIN("gc_alloc", "void");    /* gc.alloc(n) -> ^void      */
+    CURIUM_REGISTER_BUILTIN("gc_free",  "void");    /* gc.free(ptr) -> void      */
+    CURIUM_REGISTER_BUILTIN("strnum",   "strnum");  /* strnum(v) -> strnum       */
+    CURIUM_REGISTER_BUILTIN("assert",   "void");    /* assert(cond) -> void      */
+    CURIUM_REGISTER_BUILTIN("exit",     "void");    /* exit(code) -> void        */
+    CURIUM_REGISTER_BUILTIN("sizeof",   "int");     /* sizeof(T) -> int          */
+
+    #undef CURIUM_REGISTER_BUILTIN
+
     return ctx;
+
 }
 
 void curium_typecheck_free(curium_typecheck_ctx_t* ctx) {

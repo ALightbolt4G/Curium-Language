@@ -1,0 +1,25 @@
+// Curium Standard Library — Array (short aliases for std/arrays.cm)
+// import "std/array.cm";
+// Use free_i32 (not `free` — reserved in CM).
+
+import "std/arrays.cm";
+
+pub fn new_i32(initial_capacity: int) -> usize {
+    return array_i32_new(initial_capacity);
+}
+
+pub fn free_i32(handle: usize) {
+    array_i32_free(handle);
+}
+
+pub fn push(handle: usize, val: i32) {
+    array_i32_push(handle, val);
+}
+
+pub fn len(handle: usize) -> int {
+    return array_i32_len(handle);
+}
+
+pub fn get(handle: usize, index: int) -> i32 {
+    return array_i32_get(handle, index);
+}

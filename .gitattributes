@@ -1,8 +1,5 @@
-*.cm linguist-language=Curium
-*.cm x-parent=programming
-
-# Syntax Highlighting
-*.cm linguist-syntax-highlighting=curium
+# GitHub Linguist only recognizes languages in its grammar list; map .cm to C for stats/highlighting.
+*.cm linguist-language=C
 
 # Source Files (Ensure they are not marked as generated)
 src/**/*.c linguist-generated=false

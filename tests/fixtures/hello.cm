@@ -1,7 +1,3 @@
-string name = input();
-name.upper();
-print("Hello, ");
-print(name);
-print("!\n");
-gc.stats();
-
+fn main() {
+    println("Hello, fixture!");
+}

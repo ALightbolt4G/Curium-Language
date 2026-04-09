@@ -130,7 +130,7 @@ static int curium_invoke_system_compiler(const char* c_path, const char* output_
 
     /* Enterprise default: compile generated C together with the CM runtime sources,
        so `cm main.cm app` works even without a pre-built libcm present. */
-    const char* candidates[] = { "gcc", "clang", "cc", NULL };
+    const char* candidates[] = { "tcc", "gcc", "clang", "cc", NULL };
     const char* cc = NULL;
 
     for (int i = 0; candidates[i]; ++i) {
@@ -148,7 +148,7 @@ static int curium_invoke_system_compiler(const char* c_path, const char* output_
     }
 
     if (!cc) {
-        curium_error_set(CURIUM_ERROR_IO, "no C compiler found (expected gcc/clang/cc in PATH)");
+        curium_error_set(CURIUM_ERROR_IO, "no C compiler found (expected tcc/gcc/clang/cc in PATH)");
         return -1;
     }
 
@@ -239,23 +239,24 @@ static void curium_resolve_imports_recursive_v2(curium_ast_v2_list_t* main_ast, 
                     }
                     if (src) {
                         curium_module_list_append(loaded_paths, full_path);
-                        /* Re-use curium_module_list to hold source buffer pointers */
-                        /* Hack: cast char* to curium_string_t* just to hold pointer, we'll free manually */
-                        curium_module_list_append(source_buffers, src); 
-                        
+
                         curium_ast_v2_list_t sub_ast = curium_parse_v2(src);
+                        /* Track imported sources for cleanup (append copies into curium_string_t). */
+                        curium_module_list_append(source_buffers, src);
+                        free(src);
                         if (curium_error_get_last() != CURIUM_ERROR_PARSE) {
                             /* Resolve imports inside the imported file */
                             curium_resolve_imports_recursive_v2(&sub_ast, loaded_paths, source_buffers);
                             
-                            /* Append the sub AST to main AST */
+                            /* Prepend the sub AST so imported symbols are defined before the importer
+                             * (typecheck and codegen walk the list in order). */
                             if (sub_ast.head) {
                                 if (!main_ast->head) {
                                     main_ast->head = sub_ast.head;
                                     main_ast->tail = sub_ast.tail;
                                 } else {
-                                    main_ast->tail->next = sub_ast.head;
-                                    main_ast->tail = sub_ast.tail;
+                                    sub_ast.tail->next = main_ast->head;
+                                    main_ast->head = sub_ast.head;
                                 }
                             }
                         }
@@ -267,6 +268,18 @@ static void curium_resolve_imports_recursive_v2(curium_ast_v2_list_t* main_ast, 
         }
         current = current->next;
     }
+}
+
+void curium_resolve_imports_for_ast_v2(curium_ast_v2_list_t* ast, const char* entry_path) {
+    if (!ast) return;
+    curium_module_list_t loaded_paths;
+    curium_module_list_init(&loaded_paths);
+    curium_module_list_t source_buffers;
+    curium_module_list_init(&source_buffers);
+    if (entry_path) curium_module_list_append(&loaded_paths, entry_path);
+    curium_resolve_imports_recursive_v2(ast, &loaded_paths, &source_buffers);
+    curium_module_list_free(&loaded_paths);
+    curium_module_list_free(&source_buffers);
 }
 
 int curium_compile_file(const char* entry_path, const char* output_exe) {
@@ -296,7 +309,6 @@ int curium_compile_file(const char* entry_path, const char* output_exe) {
         curium_check_blacklist_ast_v2(&ast);
     } CURIUM_CATCH() {
         free(src);
-        for (size_t i = 0; i < source_buffers.count; i++) free(source_buffers.items[i]);
         curium_module_list_free(&loaded_paths);
         curium_module_list_free(&source_buffers);
         curium_ast_v2_free_list(&ast);
@@ -310,7 +322,6 @@ int curium_compile_file(const char* entry_path, const char* output_exe) {
         curium_string_free(c_code);
         curium_ast_v2_free_list(&ast);
         free(src);
-        for (size_t i = 0; i < source_buffers.count; i++) free(source_buffers.items[i]);
         curium_module_list_free(&loaded_paths);
         curium_module_list_free(&source_buffers);
         curium_error_set(CURIUM_ERROR_IO, "failed to write intermediate C file");
@@ -323,14 +334,8 @@ int curium_compile_file(const char* entry_path, const char* output_exe) {
     curium_string_free(c_code);
     curium_ast_v2_free_list(&ast);
     free(src);
-    
-    for (size_t i = 0; i < source_buffers.count; i++) {
-        /* Hack: we stored bare char* in curium_string_t* array to avoid importing new headers */
-        free(source_buffers.items[i]);
-    }
-    
     curium_module_list_free(&loaded_paths);
-    free(source_buffers.items); /* Free array but we manually freed the char* items above */
+    curium_module_list_free(&source_buffers);
 
     return rc;
 }
@@ -361,7 +366,6 @@ int curium_emit_c_file(const char* entry_path, const char* output_c_path) {
         curium_check_blacklist_ast_v2(&ast);
     } CURIUM_CATCH() {
         free(src);
-        for (size_t i = 0; i < source_buffers.count; i++) free(source_buffers.items[i]);
         curium_module_list_free(&loaded_paths);
         curium_module_list_free(&source_buffers);
         curium_ast_v2_free_list(&ast);
@@ -373,6 +377,8 @@ int curium_emit_c_file(const char* entry_path, const char* output_c_path) {
         curium_string_free(c_code);
         curium_ast_v2_free_list(&ast);
         free(src);
+        curium_module_list_free(&loaded_paths);
+        curium_module_list_free(&source_buffers);
         curium_error_set(CURIUM_ERROR_IO, "failed to write generated C file");
         return -1;
     }
@@ -380,6 +386,8 @@ int curium_emit_c_file(const char* entry_path, const char* output_c_path) {
     curium_string_free(c_code);
     curium_ast_v2_free_list(&ast);
     free(src);
+    curium_module_list_free(&loaded_paths);
+    curium_module_list_free(&source_buffers);
     return 0;
 }
 

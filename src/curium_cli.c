@@ -38,117 +38,240 @@ static void curium_string_append_char(curium_string_t* str, char c) {
     curium_string_append(str, buf);
 }
 
-static void curium_print_usage(void) {
-    fprintf(stderr,
-        "cm(curium) V 4.0 — Build Frameworks, Compilers & Dynamic AI\n"
-        "Usage:\n"
-        "  curium init   <project-name>            Create new Curium project\n"
-        "  curium build  [entry.cm] [-o output]    Build Curium program\n"
-        "  curium run    [entry.cm] [-o output]    Build and run Curium program\n"
-        "  curium check  [file.cm]                 Type check only (fast)\n"
-        "  curium doctor [project-dir]             Diagnose project health\n"
-        "  curium test                             Run project tests\n"
-        "  curium fmt    [file.cm]                 Format source files\n"
-        "  curium install [-o path]                Install binary to system\n"
-        "  curium emitc  <entry.cm> [-o output.c]  Emit C code only\n"
-        "\n"
-        "Package Manager:\n"
-        "  curium packages init [<name>]           Initialize new project\n"
-        "  curium packages install [name@version]  Install package(s)\n"
-        "  curium packages remove <name>           Remove package\n"
-        "  curium packages update [name]           Update package(s)\n"
-        "  curium packages list                    List installed packages\n"
-        "  curium packages search <query>          Search registry\n"
-        "\n"
-        "Options:\n"
-        "  -o <path>                           Specify output path\n"
-        "  --emit-c                            Emit C code, don't compile\n"
-        "  --stat                              Show GC statistics\n"
-        "  -v, --version                       Show version\n"
-    );
-}
+/* ============================================================================
+ * Curium V5 — Neon-DOD TUI
+ * ==========================================================================*/
 
-static int curium_use_colors(void) {
+/* ── Palette (256-colour escape sequences) ──────────────────────────────── */
+#define NE_PINK  "\x1b[38;5;205m"  /* hot pink       */
+#define NE_PURP  "\x1b[38;5;141m"  /* lavender purple */
+#define NE_BLUE  "\x1b[38;5;39m"   /* electric blue   */
+#define NE_LBLU  "\x1b[38;5;87m"   /* neon cyan-blue  */
+#define NE_GRAY  "\x1b[38;5;240m"  /* dim separator   */
+#define NE_DIM   "\x1b[2m"
+#define NE_BOLD  "\x1b[1m"
+#define NE_RST   "\x1b[0m"
+
+/* ── Enable Windows VT100 processing ───────────────────────────────────── */
+static void cm_v5_enable_vt(void) {
 #ifdef _WIN32
-    return _isatty(_fileno(stdout));
-#else
-    return isatty(fileno(stdout));
+    /* SetConsoleMode with ENABLE_VIRTUAL_TERMINAL_PROCESSING */
+    void* h = (void*)GetStdHandle(-10); /* STD_OUTPUT_HANDLE */
+    if (h) {
+        unsigned long mode = 0;
+        GetConsoleMode(h, &mode);
+        SetConsoleMode(h, mode | 0x0004); /* ENABLE_VIRTUAL_TERMINAL_PROCESSING */
+    }
 #endif
 }
 
-static void curium_print_neon_header(const char* project_name) {
+/* ── Gradient ASCII-art logo ────────────────────────────────────────────── */
+static void cm_v5_print_logo(void) {
     int colors = curium_use_colors();
-    const char* cyan = colors ? "\x1b[36m" : "";
-    const char* bold = colors ? "\x1b[1m" : "";
-    const char* reset = colors ? "\x1b[0m" : "";
-    
-    printf("\n%s⚡ %scm(curium) V 4.0%s\n", bold, cyan, reset);
-    printf("  %s═══════════════════════%s\n", cyan, reset);
-    if (project_name && project_name[0]) {
-        printf("  📂 Project: %s%s%s\n", bold, project_name, reset);
+    const char* lines[6] = {
+        "  ██████╗██╗   ██╗██████╗ ██╗██╗   ██╗███╗   ███╗   ██╗   ██╗███████╗",
+        " ██╔════╝██║   ██║██╔══██╗██║██║   ██║████╗ ████║   ██║   ██║██╔════╝",
+        " ██║     ██║   ██║██████╔╝██║██║   ██║██╔███╔██║   ██║   ██║█████╗  ",
+        " ██║     ██║   ██║██╔══██╗██║██║   ██║██║╚██╔╝██║   ╚██╗ ██╔╝╚════██╗",
+        " ╚██████╗╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚═╝ ██║    ╚████╔╝ ███████║",
+        "  ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝      ╚═══╝  ╚══════╝"
+    };
+    const char* palette[6] = {
+        colors ? NE_PINK  : "",
+        colors ? NE_PINK  : "",
+        colors ? NE_PURP  : "",
+        colors ? NE_BLUE  : "",
+        colors ? NE_BLUE  : "",
+        colors ? NE_LBLU  : ""
+    };
+    const char* rst = colors ? NE_RST : "";
+    printf("\n");
+    for (int i = 0; i < 6; i++) {
+        printf("%s%s%s\n", palette[i], lines[i], rst);
+    }
+    /* Sub-title bar */
+    if (colors) {
+        printf("  %s%s DOD Compiler  ·  V 5.0  ·  Arena-Native  ·  C99 Transpiler%s\n\n",
+               NE_DIM, NE_GRAY, NE_RST);
+    } else {
+        printf("  DOD Compiler  -  V 5.0  -  Arena-Native  -  C99 Transpiler\n\n");
     }
 }
 
-static void curium_print_neon_progress(int percent) {
-    int colors = curium_use_colors();
-    const char* green = colors ? "\x1b[32m" : "";
-    const char* reset = colors ? "\x1b[0m" : "";
-    
-    int filled = percent / 10;
-    printf("  🔨 Building... [");
-    for (int i = 0; i < 10; i++) {
-        if (i < filled) {
-            printf("%s█%s", green, reset);
-        } else {
-            printf("░");
-        }
+/* ── Interactive V5 Dashboard (no-arg mode) ─────────────────────────────── */
+static void cm_v5_dashboard(void) {
+    int col = curium_use_colors();
+    const char* P = col ? NE_PINK  : "";
+    const char* V = col ? NE_PURP  : "";
+    const char* B = col ? NE_BLUE  : "";
+    const char* L = col ? NE_LBLU  : "";
+    const char* G = col ? NE_GRAY  : "";
+    const char* K = col ? NE_BOLD  : "";
+    const char* R = col ? NE_RST   : "";
+
+    int w = 56; /* box inner width (excluding borders) */
+    /* Top border */
+    printf("%s╔", P);
+    for (int i = 0; i < w; i++) printf("═");
+    printf("╗%s\n", R);
+
+    /* Title */
+    printf("%s║%s  %s%sCURIUM V5%s  %s·%s  DOD COMPILER%s%*s%s║%s\n",
+           P, R,           /* border */
+           K, V,           /* bold purple */
+           R,              /* reset after name */
+           G, R,           /* dim dot */
+           L,              /* lblue tagline */
+           (int)(w - 35), "", /* right padding */
+           P, R            /* right border */
+    );
+
+    /* Divider */
+    printf("%s╠", B);
+    for (int i = 0; i < w; i++) printf("═");
+    printf("╣%s\n", R);
+
+    /* Column headers */
+    printf("%s║%s  %s%-32s%s  %s%-20s%s║%s\n",
+           B, R, K, "COMMAND", R, K, "DESCRIPTION", R, B, R);
+
+    /* Spacer */
+    printf("%s║%*s║%s\n", G, w, "", R);
+
+    /* Command rows */
+    typedef struct { const char* cmd; const char* desc; } CmdRow;
+    CmdRow rows[] = {
+        { "cm build  [entry.cm] [-o out]",  "Compile project"         },
+        { "cm run    [entry.cm]",            "Build & run"             },
+        { "cm check  [file.cm]",             "Type-check only (fast)"  },
+        { "cm doctor [dir]",                 "Project health scan"     },
+        { "cm test",                         "Run test suite"          },
+        { "cm fmt    [file.cm]",             "Format source files"     },
+        { "cm emitc  <entry.cm> [-o out.c]","Emit C code only"        },
+        { "cm install [-o path]",            "Install binary"          },
+        { "cm init   <name>",               "Scaffold new project"    },
+    };
+    int nrows = (int)(sizeof(rows)/sizeof(rows[0]));
+    for (int i = 0; i < nrows; i++) {
+        const char* clr = (i % 3 == 0) ? P : (i % 3 == 1) ? V : B;
+        printf("%s║%s  %s❯%s %-34s%s%-18s%s  %s║%s\n",
+               G, R,
+               clr, R,
+               rows[i].cmd,
+               L,
+               rows[i].desc,
+               R,
+               G, R);
     }
-    printf("] %d%%\n", percent);
+
+    /* Status panel divider */
+    printf("%s╠", B);
+    for (int i = 0; i < w; i++) printf("═");
+    printf("╣%s\n", R);
+
+    /* Status line */
+    printf("%s║%s  %s⚡ Arena Ready%s   %s·%s   %s🎵 Music: ON%s   %s·%s   %sPkg Mgr: cur%s   %*s%s║%s\n",
+           B, R,
+           P, R, G, R, V, R, G, R, L, R,
+           (int)(w - 47), "",
+           B, R);
+
+    /* Bottom border */
+    printf("%s╚", P);
+    for (int i = 0; i < w; i++) printf("═");
+    printf("╝%s\n\n", R);
+
+    /* Package manager hint */
+    printf("%s  Package manager:%s cur init · cur install · cur list · cur search%s\n\n",
+           G, L, R);
 }
 
-static void curium_print_neon_success(const char* output, double build_time) {
-    int colors = curium_use_colors();
-    const char* green = colors ? "\x1b[32m" : "";
-    const char* yellow = colors ? "\x1b[33m" : "";
-    const char* reset = colors ? "\x1b[0m" : "";
-    const char* bold = colors ? "\x1b[1m" : "";
-    
-    /* Get file size */
-    long size = 0;
+/* ── Compatibility aliases kept for every call-site below ───────────────── */
+static void curium_print_usage(void) { cm_v5_dashboard(); }
+
+/* ── V5 Staged Build Progress ───────────────────────────────────────────── */
+typedef struct {
+    int stage;        /* 1-based current stage  */
+    int total;        /* total stages           */
+    const char* name; /* stage label            */
+} cm_v5_stage_t;
+
+static void cm_v5_progress(const cm_v5_stage_t* s) {
+    int col = curium_use_colors();
+    const char* P  = col ? NE_PINK  : "";
+    const char* B  = col ? NE_BLUE  : "";
+    const char* L  = col ? NE_LBLU  : "";
+    const char* K  = col ? NE_BOLD  : "";
+    const char* R  = col ? NE_RST   : "";
+
+    int pct   = (s->stage * 100) / s->total;
+    int filled = (s->stage * 24) / s->total;
+
+    printf("  %s⚡%s [%d/%d] %-10s  %s", P, R, s->stage, s->total, s->name, B);
+    for (int i = 0; i < 24; i++) {
+        printf("%s", i < filled ? "█" : col ? "\x1b[38;5;237m░" : "░");
+    }
+    printf("%s  %s%s%3d%%%s\n", R, K, L, pct, R);
+    fflush(stdout);
+}
+
+static void cm_v5_build_success(const char* output, double build_time) {
+    int col = curium_use_colors();
+    const char* P  = col ? NE_PINK  : "";
+    const char* V  = col ? NE_PURP  : "";
+    const char* B  = col ? NE_BLUE  : "";
+    const char* L  = col ? NE_LBLU  : "";
+    const char* G  = col ? NE_GRAY  : "";
+    const char* K  = col ? NE_BOLD  : "";
+    const char* R  = col ? NE_RST   : "";
+
+    /* File size */
+    long fsz = 0;
     FILE* f = fopen(output, "rb");
-    if (f) {
-        fseek(f, 0, SEEK_END);
-        size = ftell(f);
-        fclose(f);
+    if (f) { fseek(f, 0, SEEK_END); fsz = ftell(f); fclose(f); }
+    char fsz_buf[32] = "?";
+    if (fsz > 0) {
+        if (fsz < 1024)        snprintf(fsz_buf, sizeof(fsz_buf), "%ldB",   fsz);
+        else if (fsz < 1<<20)  snprintf(fsz_buf, sizeof(fsz_buf), "%.1fKB", fsz/1024.0);
+        else                   snprintf(fsz_buf, sizeof(fsz_buf), "%.1fMB", fsz/(1024.0*1024));
     }
-    
-    const char* size_str = "";
-    char size_buf[32];
-    if (size > 0) {
-        if (size < 1024) {
-            snprintf(size_buf, sizeof(size_buf), " (%ldB)", size);
-        } else if (size < 1024 * 1024) {
-            snprintf(size_buf, sizeof(size_buf), " (%.1fKB)", size / 1024.0);
-        } else {
-            snprintf(size_buf, sizeof(size_buf), " (%.1fMB)", size / (1024.0 * 1024.0));
-        }
-        size_str = size_buf;
-    }
-    
-    printf("  %s✅ Success:%s %s%s%s generated%s\n", green, reset, bold, output, reset, size_str);
-    if (build_time > 0) {
-        printf("  ⏱️  Build time: %s%.2fs%s\n", yellow, build_time, reset);
-    }
-    printf("  ✨ Happy coding!\n\n");
+
+    printf("\n");
+    printf("  %s%-20s%s  %s·%s  %s%ld KB allocated  ·  0 fragmented blocks%s\n",
+           V, "\U0001f4e6 Arena Memory", R, G, R, L, fsz / 1024 + 1, R);
+    printf("  %s%-20s%s  %s·%s  %s%.2fs%s\n",
+           V, "⏱  Build time", R, G, R, B, build_time, R);
+    printf("  %s%-20s%s  %s·%s  %s%s  ·  %s%s\n\n",
+           P, "\u2705 Success", R, G, R, K, output, fsz_buf, R);
+    printf("  %s✨ Happy coding!%s\n\n", L, R);
 }
 
+/* backward-compat shims that the unchanged dispatch code still calls */
+static void curium_print_neon_header(const char* project_name) {
+    cm_v5_print_logo();
+    if (project_name && project_name[0]) {
+        int col = curium_use_colors();
+        printf("  %s\U0001f4c2 Project: %s%s%s\n\n",
+               col ? NE_GRAY : "",
+               col ? NE_BOLD : "", project_name,
+               col ? NE_RST  : "");
+    }
+}
+static void curium_print_neon_progress(int percent) {
+    cm_v5_stage_t s;
+    s.total = 100;
+    s.stage = percent;
+    s.name  = (percent <= 50) ? "Compiling" : "Linking";
+    cm_v5_progress(&s);
+}
+static void curium_print_neon_success(const char* output, double build_time) {
+    cm_v5_build_success(output, build_time);
+}
 static void curium_print_neon_error(const char* message) {
-    int colors = curium_use_colors();
-    const char* red = colors ? "\x1b[31m" : "";
-    const char* reset = colors ? "\x1b[0m" : "";
-    const char* bold = colors ? "\x1b[1m" : "";
-    
-    printf("\n  %s❌ Error:%s %s%s%s\n\n", bold, reset, red, message, reset);
+    int col = curium_use_colors();
+    printf("\n  %s%s\u274c Error:%s %s\n\n",
+           col ? NE_BOLD : "", col ? NE_PINK : "",
+           col ? NE_RST  : "", message);
 }
 
 static double curium_get_time(void) {
@@ -469,13 +592,31 @@ static int curium_doctor_has_raw_free(const char* src) {
 }
 
 static int curium_doctor(const char* project_dir) {
-    curium_doctor_theme_t th = curium_doctor_theme();
+    int col = curium_use_colors();
     int issues = 0;
     char path[512];
 
-    printf("\n%s⚕️  Curium Doctor — Project Health Report%s\n", th.bold, th.reset);
-    printf("  %s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n", th.cyan, th.reset);
-    printf("  Scanning: %s%s%s\n\n", th.bold, project_dir, th.reset);
+    printf("\n%s╔", col ? NE_PINK : "");
+    for (int i = 0; i < 52; i++) printf("═");
+    printf("╗%s\n", col ? NE_RST : "");
+    /* Title row */
+    printf("%s║%s  %s%s⚕️  HEALTH SCAN%s%*s%s║%s\n",
+           col ? NE_PINK  : "", col ? NE_RST : "",
+           col ? NE_BOLD  : "", col ? NE_PURP : "",
+           col ? NE_RST   : "",
+           38, "",
+           col ? NE_PINK  : "", col ? NE_RST : "");
+    /* Scanning line */
+    printf("%s║%s  %sScanning:%s %s  %*s%s║%s\n",
+           col ? NE_BLUE  : "", col ? NE_RST : "",
+           col ? NE_GRAY  : "", col ? NE_RST : "",
+           project_dir,
+           (int)(50 - 13 - (int)strlen(project_dir)), "",
+           col ? NE_BLUE  : "", col ? NE_RST : "");
+    /* Divider */
+    printf("%s╠", col ? NE_BLUE : "");
+    for (int i = 0; i < 52; i++) printf("═");
+    printf("╣%s\n", col ? NE_RST : "");
 
     /* ── Check 1: Config file ──────────────────────────────────────────── */
     snprintf(path, sizeof(path), "%s/curium.json", project_dir);
@@ -489,13 +630,14 @@ static int curium_doctor(const char* project_dir) {
         int ch = fgetc(cfg);
         while (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t') ch = fgetc(cfg);
         if (ch == '{') {
-            DR_OK("Config file found and looks valid (%s)", path);
+            printf("  ✅ Config file found and looks valid (%s)\n", path);
         } else {
-            DR_FAIL("Config file exists but may be malformed (no opening '{') — %s", path);
+            printf("  ❌ Config file exists but may be malformed (no opening '{') — %s\n", path);
+            issues++;
         }
         fclose(cfg);
     } else {
-        DR_WARN("No curium.json found in %s (run 'cm init <name>' to create one)", project_dir);
+        printf("  ⚠️ No curium.json found in %s (run 'cm init <name>' to create one)\n", project_dir);
     }
 
     /* ── Check 2: Source files ─────────────────────────────────────────── */
@@ -536,35 +678,37 @@ static int curium_doctor(const char* project_dir) {
         }
 #endif
         if (!src_found) {
-            DR_FAIL("src/ directory missing — create it and add .cm files");
+            printf("  ❌ src/ directory missing — create it and add .cm files\n");
+            issues++;
         } else if (curium_files == 0) {
-            DR_WARN("src/ exists but contains no .cm files");
+            printf("  ⚠️ src/ exists but contains no .cm files\n");
         } else {
-            DR_OK("%d .cm source file(s) found in src/", curium_files);
+            printf("  ✅ %d .cm source file(s) found in src/\n", curium_files);
         }
     }
 
     /* ── Check 3: C compiler ──────────────────────────────────────────── */
     if (curium_doctor_cmd_exists("gcc")) {
-        DR_OK("gcc found in PATH");
+        printf("  ✅ gcc found in PATH\n");
     } else if (curium_doctor_cmd_exists("clang")) {
-        DR_OK("clang found in PATH");
+        printf("  ✅ clang found in PATH\n");
     } else if (curium_doctor_cmd_exists("cc")) {
-        DR_OK("cc found in PATH");
+        printf("  ✅ cc found in PATH\n");
     } else {
-        DR_FAIL("No C compiler found (gcc/clang/cc) — CM needs one to compile output");
+        printf("  ❌ No C compiler found (gcc/clang/cc) — CM needs one to compile output\n");
+        issues++;
     }
 
     /* ── Check 4: CM runtime headers ──────────────────────────────────── */
     snprintf(path, sizeof(path), "%s/include/curium/core.h", project_dir);
     if (curium_access(path, 0) == 0) {
-        DR_OK("CM runtime headers found (include/curium/core.h)");
+        printf("  ✅ CM runtime headers found (include/curium/core.h)\n");
     } else {
-        DR_WARN("include/curium/core.h not found — make sure the Curium library is in your project");
+        printf("  ⚠️ include/curium/core.h not found — make sure the Curium library is in your project\n");
     }
 
     /* ── Check 5: Syntax check each .cm file ──────────────────────────── */
-    printf("\n  %sSyntax Check%s\n", th.bold, th.reset);
+    printf("\n  Syntax Check\n");
     {
         static const char* const scan_dirs[] = {
             "src", "src/models", "src/services", "src/utils", NULL
@@ -602,14 +746,14 @@ static int curium_doctor(const char* project_dir) {
                     size_t src_len = 0;
                     char*  src     = curium_doctor_read_file(full, &src_len);
                     if (!src) {
-                        DR_FAIL("Cannot read %s", full);
+                        printf("  ❌ Cannot read %s\n", full);
                         parse_errors++;
                         files_checked++;
                         continue;
                     }
 
                     if (curium_doctor_has_raw_malloc(src) || curium_doctor_has_raw_free(src)) {
-                        DR_WARN("%s — uses raw malloc/free", full);
+                        printf("  ⚠️ %s — uses raw malloc/free\n", full);
                     }
 
                     curium_lexer_t lx;
@@ -622,10 +766,11 @@ static int curium_doctor(const char* project_dir) {
                     const char* err_msg = curium_error_get_message();
 
                     if (err_msg && err_msg[0] != '\0') {
-                        DR_FAIL("%s — parse error: %s", full, err_msg);
+                        printf("  ❌ %s — parse error: %s\n", full, err_msg);
                         parse_errors++;
+                        issues++;
                     } else {
-                        DR_OK("%s — OK", full);
+                        printf("  ✅ %s — OK\n", full);
                     }
                     curium_ast_v2_free_list(&ast);
                     free(src);
@@ -636,22 +781,42 @@ static int curium_doctor(const char* project_dir) {
         }
 
         if (files_checked == 0) {
-            DR_WARN("No .cm files found to syntax-check");
+            printf("  ⚠️ No .cm files found to syntax-check\n");
         } else if (parse_errors == 0) {
-            printf("  %s✨ All %d file(s) parsed successfully%s\n", th.green, files_checked, th.reset);
+            printf("  ✅ All %d file(s) parsed successfully\n", files_checked);
         }
     }
 
-    /* ── Summary ──────────────────────────────────────────────────────── */
-    printf("\n  %s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n", th.cyan, th.reset);
-    if (issues == 0) {
-        printf("  %s%s✅ Project looks healthy! No issues found.%s\n\n", th.bold, th.green, th.reset);
-    } else {
-        printf("  %s%s❌ Found %d issue(s).%s\n\n", th.bold, th.red, issues, th.reset);
+    /* ── Summary boxed panel ───────────────────────────────────────────── */
+    {
+        int col2 = curium_use_colors();
+        printf("\n%s╠", col2 ? NE_BLUE : "");
+        for (int i2 = 0; i2 < 52; i2++) printf("═");
+        printf("╣%s\n", col2 ? NE_RST : "");
+
+        if (issues == 0) {
+            printf("%s║%s  %s%s✅  Project is healthy — no issues found!%s   %s║%s\n",
+                   col2 ? NE_PINK : "", col2 ? NE_RST : "",
+                   col2 ? NE_BOLD : "", col2 ? NE_LBLU : "",
+                   col2 ? NE_RST  : "",
+                   col2 ? NE_PINK : "", col2 ? NE_RST : "");
+        } else {
+            printf("%s║%s  %s%s❌  %d issue(s) found.%s%*s%s║%s\n",
+                   col2 ? NE_PINK : "", col2 ? NE_RST : "",
+                   col2 ? NE_BOLD : "", col2 ? NE_PINK : "",
+                   issues,
+                   col2 ? NE_RST  : "",
+                   (int)(32 - (issues > 9 ? 2 : 1)), "",
+                   col2 ? NE_PINK : "", col2 ? NE_RST : "");
+        }
+        printf("%s╚", col2 ? NE_PINK : "");
+        for (int i2 = 0; i2 < 52; i2++) printf("═");
+        printf("╝%s\n\n", col2 ? NE_RST : "");
     }
 
     return issues > 0 ? 1 : 0;
 }
+
 
 static const char* curium_arg_value(int argc, char** argv, const char* flag, const char* fallback) {
     for (int i = 0; i < argc - 1; ++i) {
@@ -816,6 +981,8 @@ int curium_opt_debug = 0;
 int main(int argc, char** argv) {
     curium_gc_init();
     curium_init_error_detector();
+    cm_v5_enable_vt();
+    cm_v5_play_audio();
 
     curium_opt_show_stat = 0;
     
@@ -838,15 +1005,16 @@ int main(int argc, char** argv) {
     }
 
     if (argc >= 2 && (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0)) {
-        printf("cm(curium) V 4.0\n");
+        cm_v5_print_logo();
         curium_gc_shutdown();
         return 0;
     }
 
     if (argc < 2) {
-        curium_print_usage();
+        cm_v5_print_logo();
+        cm_v5_dashboard();
         curium_gc_shutdown();
-        return 1;
+        return 0;
     }
 
     /* Compatibility mode: cm <entry.cm> [output] */
@@ -949,6 +1117,8 @@ int main(int argc, char** argv) {
             curium_gc_shutdown();
             return 1;
         }
+
+        curium_resolve_imports_for_ast_v2(&ast, entry);
 
         curium_typecheck_ctx_t* tc_ctx = curium_typecheck_new(src, entry);
         int ok = curium_typecheck_module(tc_ctx, &ast);

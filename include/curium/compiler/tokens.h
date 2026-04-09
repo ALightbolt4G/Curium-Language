@@ -86,6 +86,7 @@ typedef enum {
     CURIUM_TOK_KW_MUTABLE,      /* mutable parameter marker */
     CURIUM_TOK_KW_IMPORT,       /* import module */
     CURIUM_TOK_KW_DYN,          /* dyn dynamic operator */
+    CURIUM_TOK_KW_CALL,         /* call dynamic function */
     CURIUM_TOK_KW_SPAWN,        /* spawn thread */
     CURIUM_TOK_KW_C,            /* c block keyword */
     CURIUM_TOK_KW_GC,           /* gc namespace */
@@ -160,7 +161,12 @@ typedef enum {
     
     /* New v2 specific */
     CURIUM_TOK_INTERPOLATED_STRING,  /* "hello {name}" */
-    CURIUM_TOK_RAW_STRING           /* r"raw string" */
+    CURIUM_TOK_RAW_STRING,           /* r"raw string"  */
+
+    /* v5.0: Developer Cache Control — #[attribute] syntax.
+     * Emitted when lexer sees #[name]; lexeme contains the inner name only.
+     * Example: #[hot]  →  CURIUM_TOK_HASH_ATTR, lexeme = "hot"           */
+    CURIUM_TOK_HASH_ATTR
 } curium_token_kind_t;
 
 typedef struct {

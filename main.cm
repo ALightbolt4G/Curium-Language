@@ -1,7 +1,10 @@
-fn hello(){
-    println("hello world");
-}
+import "std/math.cm";
 
 fn main(){
-    hello();
+    let a = 10;
+    let b = 20;
+    let c = a + b;
+    println(c);
+    let d = power(a, b);
+    println(d);
 }

@@ -1,0 +1,30 @@
+/* tests/20_hot_attr.cm — Phase 3 #[hot] attribute test
+ *
+ * Verifies that #[hot] before let/mut declarations causes the codegen
+ * to emit the C `register` storage-class hint.
+ */
+import "std/io.cm";
+
+fn benchmark() {
+    /* Without #[hot]: normal stack variable */
+    let baseline: int = 100;
+
+    /* With #[hot]: codegen emits `register const int curium_counter = 0;`
+     * The Chef keeps `counter` on the Cutting Board (registers)
+     * rather than fetching it from the Fridge (RAM) on each iteration. */
+    #[hot] mut counter: int = 0;
+
+    /* Also test @hot legacy syntax */
+    @hot mut total: int = 0;
+
+    while (counter < baseline) {
+        total = total + counter;
+        counter = counter + 1;
+    }
+
+    println(total);
+}
+
+fn main() {
+    benchmark();
+}

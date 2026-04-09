@@ -5,6 +5,7 @@
 #include "curium/memory.h"
 #include "curium/error.h"
 #include "curium/cmd.h"
+#include "curium/http.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -325,18 +326,20 @@ int curium_packages_install(curium_package_manager_t* pm, const char* package_na
     if (version) printf("@%s", version);
     printf("...\n");
     
-    /* TODO: Implement actual package download and installation */
-    /* This would involve:
-     * 1. Fetching package info from registry
-     * 2. Downloading package archive
-     * 3. Extracting to packages directory
-     * 4. Updating manifest
-     * 5. Resolving and installing transitive dependencies
-     */
+    char url[512];
+    snprintf(url, sizeof(url), "https://registry.curium-lang.org/api/pkg/%s", package_name);
     
-    /* Placeholder for now */
-    printf("Package installation not yet fully implemented\n");
-    return 0;
+    CHttpResponse* res = curium_http_get(url);
+    if (!res || res->status_code != 200) {
+        printf("Failed to locate package API for: %s\n", package_name);
+        if (res) CHttpResponse_delete(res);
+        return -1;
+    }
+    
+    printf("Fetched package info successfully, unpacking not fully implemented.\n");
+    
+    CHttpResponse_delete(res);
+    return 1;
 }
 
 int curium_packages_install_all(curium_package_manager_t* pm) {

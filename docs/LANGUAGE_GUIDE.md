@@ -1,87 +1,94 @@
-# 🚀 Getting Started with Curium
+# 🚀 Getting Started with Curium v4.0
 
-Curium is a powerful, expressive language that brings modern ergonomic features like memory safety and dynamic operators to the world of performance-critical software.
+Curium is a next-generation systems programming language transpiling down to raw C11 while guaranteeing absolute memory safety and the ergonomics of C# and Go. It is designed precisely for performance-critical environments where speed and reliability are equally paramount.
 
 ---
 
-## 🏗️ Step 1: Installation
+## 🏗️ Step 1: Installation & CLI
 
-Curium depends on a C99-compliant compiler (MinGW, GCC, or Clang) and CMake for building project files.
+Curium depends on a C99/C11 compliant compiler (MinGW, GCC, Clang, or TCC) and CMake.
 
-### Windows (recommended)
-1. Install [MinGW-w64](https://www.mingw-v64.org/) and add the `bin` folder to your PATH.
+### Windows (Recommended)
+1. Install [MinGW-w64](https://www.mingw-v64.org/) and/or `tcc` (`choco install tcc`).
 2. Install [CMake](https://cmake.org/download/).
-3. Clone or download the Curium project and navigate to it in your terminal.
-4. Run the installer script or build the project from source:
+3. Pull the Curium project repository.
+4. Run the installer or build script:
    ```powershell
-   cmake -B build
-   cmake --build build
+   cmake -B build -DCMAKE_BUILD_TYPE=Release
+   cmake --build build --config Release
    ```
-5. Add the `build/` folder to your PATH to use the `curium` command globally.
+5. Add the `build/Release/` directory to your global PATH environment variable.
 
 ---
 
-## 📝 Step 2: Your First Project
+## 📝 Step 2: The Structure
 
-Let's create a "Hello World" application.
+Create a test program. Unlike older iterations, v4.0 is fully capable of type-agnostic formatting and automated memory cleanup out-of-the-box.
 
-1.  Initialize a new project:
-    ```bash
-    curium init my_app
-    cd my_app
-    ```
-2.  Open `src/main.cm` and write:
-    ```cm
-    fn main() {
-        println("Hello, Curium!");
-    }
-    ```
-3.  Run the project:
-    ```bash
-    curium run
-    ```
-
----
-
-## 🎨 Step 3: Key Features to Explore
-
-### 1. Variables and Types
-Curium uses `let` for immutable variables and `mut` for mutable ones.
 ```cm
-let x = 10;
-mut y = 20;
-y = 30; // Correct
-x = 10; // Error: x is immutable
+// src/main.cm
+fn main() {
+    mut name = "Developer";
+    mut version = 4.0;
+    
+    // Automatic string interpolation and inference
+    println("Hello {name}, welcome to Curium v{version}!");
+}
+```
+
+---
+
+## 🎨 Step 3: Monumental v4 Features
+
+### 1. The `strnum` Super-Type
+Curium 4.0 introduces the `strnum` primitive type. It seamlessly pivots between string operations and math operations underneath without sacrificing static typing speed.
+```cm
+mut payload: strnum = 404;
+payload = "Not Found"; // Completely legal, memory handled.
 ```
 
 ### 2. Dynamic Operators (`dyn`)
-Define custom operator logic that can be changed at runtime.
+Define custom infix operations on runtime logic. With v4.0, you can explicitly map patterns to functions or direct return blocks, always guarded by a mandatory fallback for guaranteed compilation stability.
 ```cm
-mut op = "+";
+mut op = "custom_add";
+
 dyn op in (
-    "+" => { return x + y; },
-    "avg" => { return (x + y) / 2.0; }
-) dyn($) { return 0; };
+    "custom_add" => { return x + y + 1; },
+    "avg" => { return (x + y) / 2; }
+) dyn($) {
+    println("Fallback triggered! Unknown action.");
+    return 0;
+};
+
+// Execution:
+let res = x op y;
 ```
 
-### 3. Safety First (`^` and `?`)
-Curium provides safe pointers and optional types to prevent null-pointer exceptions and out-of-bounds access.
+### 3. Safe Pointers (`^`)
+Dangling pointers are a thing of the past. Curium introduces reference-counted automatic safe pointers, denoted by `^`.
 ```cm
-mut head: ^Node = ^node; // Safe pointer
-let val: int = res?;   // Error-propagating unwrap
+mut pointer: ^int = new 42;
+println("Dereferenced value: " + (pointer^));
+// Freeing happens natively when out of scope.
 ```
 
-### 4. Memory Model (Reactors)
-Choose between performance and convenience.
+### 4. Zero-Cost Polyglot Blocks
+Mix raw C efficiently:
+```cm
+c {
+    printf("I am bypassing the AST directly into C11!\n");
+}
+```
+
+### 5. Memory Model: Reactors
+Opt entirely out of the garbage-collector overhead manually when required using Memory Reactors.
 ```cm
 reactor arena(1024) {
-    // Bulk allocate and free instantly
+    // 1024 byte bump allocator. Lightning fast allocations.
 }
 ```
 
 ---
 
 ## 📚 Next Steps
-- Read the [Syntax Reference](SYNTAX_REFERENCE.md) for a full index of features.
-- Explore the [Standard Library](PROJECT_GUIDE.md) to build more complex apps.
-- Join the community and start building amazing frameworks!
+Continue to explore the [Syntax Reference](SYNTAX_REFERENCE.md) to dive deeper into Enums, Traits, Iterators, and the exhaustive keyword checklist!

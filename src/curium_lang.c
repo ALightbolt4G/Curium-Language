@@ -1009,7 +1009,7 @@ static int curium_invoke_system_compiler(const char* c_path, const char* output_
 
     /* Enterprise default: compile generated C together with the CM runtime sources,
        so `cm main.cm app` works even without a pre-built libcm present. */
-    const char* candidates[] = { "gcc", "clang", "cc", NULL };
+    const char* candidates[] = { "tcc", "gcc", "clang", "cc", NULL };
     const char* cc = NULL;
 
     for (int i = 0; candidates[i]; ++i) {

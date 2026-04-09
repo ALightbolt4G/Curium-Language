@@ -1,0 +1,32 @@
+fn get_result(success: bool) -> Result<string, string> {
+    if (success) {
+        return Ok("Success!");
+    } else {
+        return Err("Operation failed");
+    }
+}
+
+fn test_basic() -> int {
+    println("Testing println correctly injected into Typechecker!");
+    
+    // Testing uninitialized variable scalar assignment
+    mut y: int;
+    y = 50;
+    println("Initialized y");
+    
+    // Testing try expression handling unwrapping Result type during typechecking
+    let res: Result<string, string> = get_result(true);
+    let ok_val: string = res?;
+    println(ok_val);
+    
+    if (y == 50) {
+        println("All tests passed!");
+        return 0;
+    }
+    
+    return 1;
+}
+
+fn main() {
+    test_basic();
+}

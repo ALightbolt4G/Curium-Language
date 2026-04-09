@@ -15,4 +15,7 @@ int curium_emit_c_file(const char* entry_path, const char* output_c_path);
 /* v2 high-level parse interface */
 curium_ast_v2_list_t curium_parse_v2(const char* src);
 
+/* Resolve `import "..."` and merge AST (imports prepended so symbols are in scope). */
+void curium_resolve_imports_for_ast_v2(curium_ast_v2_list_t* ast, const char* entry_path);
+
 #endif

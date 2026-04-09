@@ -1334,28 +1334,55 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_dyn(curium_parser_v2_t* p) {
         /* expect '=>' */
         curium_parser_v2_expect(p, CURIUM_TOK_FAT_ARROW, "=>");
 
-        /* expect '{' */
-        curium_parser_v2_expect(p, CURIUM_TOK_LBRACE, "{");
-
-        /* parse body statements */
-        curium_ast_v2_node_t* body      = NULL;
-        curium_ast_v2_node_t* body_tail = NULL;
-        while (p->current.kind != CURIUM_TOK_RBRACE && p->current.kind != CURIUM_TOK_EOF) {
-            curium_ast_v2_node_t* s = curium_parser_v2_parse_stmt(p);
-            if (s) {
-                if (!body) { body = s; body_tail = s; }
-                else { body_tail->next = s; body_tail = s; }
+        if (p->current.kind == CURIUM_TOK_KW_CALL) {
+            curium_parser_v2_advance(p); /* consume 'call' */
+            curium_parser_v2_expect(p, CURIUM_TOK_IDENTIFIER, "function name after call");
+            curium_string_t* target_fn = curium_string_new(p->previous.lexeme ? p->previous.lexeme->data : "");
+            
+            curium_parser_v2_expect(p, CURIUM_TOK_LPAREN, "(");
+            curium_ast_v2_node_t* args = NULL;
+            curium_ast_v2_node_t* args_tail = NULL;
+            while (p->current.kind != CURIUM_TOK_RPAREN && p->current.kind != CURIUM_TOK_EOF) {
+                curium_ast_v2_node_t* arg = curium_parser_v2_parse_expr(p);
+                if (arg) {
+                    if (!args) { args = arg; args_tail = arg; }
+                    else { args_tail->next = arg; args_tail = arg; }
+                }
+                if (p->current.kind == CURIUM_TOK_COMMA) curium_parser_v2_advance(p);
             }
+            curium_parser_v2_expect(p, CURIUM_TOK_RPAREN, ")");
+            
+            curium_ast_v2_node_t* arm = curium_ast_v2_new(CURIUM_AST_V2_DYN_CALL_ARM, arm_line, arm_col);
+            arm->as.dyn_call_arm.pattern = pattern;
+            arm->as.dyn_call_arm.target_fn = target_fn;
+            arm->as.dyn_call_arm.args = args;
+
+            if (!arms) { arms = arm; arms_tail = arm; }
+            else { arms_tail->next = arm; arms_tail = arm; }
+        } else {
+            /* expect '{' */
+            curium_parser_v2_expect(p, CURIUM_TOK_LBRACE, "{");
+
+            /* parse body statements */
+            curium_ast_v2_node_t* body      = NULL;
+            curium_ast_v2_node_t* body_tail = NULL;
+            while (p->current.kind != CURIUM_TOK_RBRACE && p->current.kind != CURIUM_TOK_EOF) {
+                curium_ast_v2_node_t* s = curium_parser_v2_parse_stmt(p);
+                if (s) {
+                    if (!body) { body = s; body_tail = s; }
+                    else { body_tail->next = s; body_tail = s; }
+                }
+            }
+            curium_parser_v2_expect(p, CURIUM_TOK_RBRACE, "}");
+
+            /* Create match arm node (reuse ARM kind) */
+            curium_ast_v2_node_t* arm = curium_ast_v2_new(CURIUM_AST_V2_MATCH_ARM, arm_line, arm_col);
+            arm->as.match_arm.pattern = pattern;
+            arm->as.match_arm.expr    = body; /* body is a linked list of stmts */
+
+            if (!arms) { arms = arm; arms_tail = arm; }
+            else { arms_tail->next = arm; arms_tail = arm; }
         }
-        curium_parser_v2_expect(p, CURIUM_TOK_RBRACE, "}");
-
-        /* Create match arm node (reuse ARM kind) */
-        curium_ast_v2_node_t* arm = curium_ast_v2_new(CURIUM_AST_V2_MATCH_ARM, arm_line, arm_col);
-        arm->as.match_arm.pattern = pattern;
-        arm->as.match_arm.expr    = body; /* body is a linked list of stmts */
-
-        if (!arms) { arms = arm; arms_tail = arm; }
-        else { arms_tail->next = arm; arms_tail = arm; }
 
         /* optional comma between arms */
         curium_parser_v2_match(p, CURIUM_TOK_COMMA);
@@ -1363,33 +1390,52 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_dyn(curium_parser_v2_t* p) {
 
     curium_parser_v2_expect(p, CURIUM_TOK_RPAREN, ")");
 
-    /* Optional fallback: dyn($) { body } */
-    curium_ast_v2_node_t* fallback = NULL;
-    if (p->current.kind == CURIUM_TOK_KW_DYN) {
+    /* Fallbacks: dyn(cond) { body } or dyn($) { body } */
+    curium_ast_v2_node_t* fallbacks = NULL;
+    curium_ast_v2_node_t* fb_list_tail = NULL;
+    
+    while (p->current.kind == CURIUM_TOK_KW_DYN) {
+        size_t fb_line = p->current.line;
+        size_t fb_col  = p->current.column;
         curium_parser_v2_advance(p); /* consume 'dyn' */
         curium_parser_v2_expect(p, CURIUM_TOK_LPAREN, "(");
-        curium_parser_v2_expect(p, CURIUM_TOK_DOLLAR, "$");
+        
+        curium_ast_v2_node_t* cond = NULL;
+        if (curium_parser_v2_match(p, CURIUM_TOK_DOLLAR)) {
+            /* catch-all */
+            cond = NULL;
+        } else {
+            cond = curium_parser_v2_parse_expr(p);
+        }
         curium_parser_v2_expect(p, CURIUM_TOK_RPAREN, ")");
         curium_parser_v2_expect(p, CURIUM_TOK_LBRACE, "{");
 
+        curium_ast_v2_node_t* body = NULL;
         curium_ast_v2_node_t* fb_tail = NULL;
         while (p->current.kind != CURIUM_TOK_RBRACE && p->current.kind != CURIUM_TOK_EOF) {
             curium_ast_v2_node_t* s = curium_parser_v2_parse_stmt(p);
             if (s) {
-                if (!fallback) { fallback = s; fb_tail = s; }
+                if (!body) { body = s; fb_tail = s; }
                 else { fb_tail->next = s; fb_tail = s; }
             }
         }
         curium_parser_v2_expect(p, CURIUM_TOK_RBRACE, "}");
+        
+        curium_ast_v2_node_t* fb_node = curium_ast_v2_new(CURIUM_AST_V2_DYN_FALLBACK, fb_line, fb_col);
+        fb_node->as.dyn_fallback.cond = cond;
+        fb_node->as.dyn_fallback.body = body;
+        
+        if (!fallbacks) { fallbacks = fb_node; fb_list_tail = fb_node; }
+        else { fb_list_tail->next = fb_node; fb_list_tail = fb_node; }
     }
 
     /* expect ';' */
     curium_parser_v2_expect(p, CURIUM_TOK_SEMI, ";");
 
     curium_ast_v2_node_t* dyn_node = curium_ast_v2_new(CURIUM_AST_V2_DYN_OP, line, col);
-    dyn_node->as.dyn_op.name     = name;
-    dyn_node->as.dyn_op.arms     = arms;
-    dyn_node->as.dyn_op.fallback = fallback;
+    dyn_node->as.dyn_op.name      = name;
+    dyn_node->as.dyn_op.arms      = arms;
+    dyn_node->as.dyn_op.fallbacks = fallbacks;
     return dyn_node;
 }
 
@@ -1512,12 +1558,46 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_stmt(curium_parser_v2_t* p) 
         if (node) node->as.trait_decl.is_public = is_public;
         return node;
     }
+    /* v5.0 Phase 3: Developer Cache Control — #[hot] attribute
+     *
+     * #[hot] before a let/mut declaration tells the codegen to emit the
+     * C `register` keyword, hinting the compiler to keep the variable
+     * on the Cutting Board (CPU registers) rather than spilling to the
+     * Fridge (RAM / stack).
+     *
+     * Syntax supported:
+     *   #[hot] let x: int = 42;    → register const int curium_x = 42;
+     *   #[hot] mut y: int = 0;     → register int curium_y = 0;
+     *   @hot   let x: int = 42;    → same (legacy @ attribute syntax)
+     */
+    int is_hot = 0;
+    if (p->current.kind == CURIUM_TOK_HASH_ATTR) {
+        /* #[name] — only act on "hot"; silently skip unknown attributes */
+        if (p->current.lexeme && strcmp(p->current.lexeme->data, "hot") == 0) {
+            is_hot = 1;
+        }
+        curium_parser_v2_advance(p); /* consume attribute token */
+    } else if (p->current.kind == CURIUM_TOK_AT) {
+        /* @hot — legacy @ attribute syntax */
+        curium_parser_v2_advance(p); /* consume '@' */
+        if (p->current.kind == CURIUM_TOK_IDENTIFIER &&
+            p->current.lexeme && strcmp(p->current.lexeme->data, "hot") == 0) {
+            is_hot = 1;
+            curium_parser_v2_advance(p); /* consume 'hot' */
+        }
+    }
+
     if (p->current.kind == CURIUM_TOK_KW_LET || p->current.kind == CURIUM_TOK_KW_MUT) {
         int is_mut = (p->current.kind == CURIUM_TOK_KW_MUT);
         curium_ast_v2_node_t* node = curium_parser_v2_parse_let_mut(p, is_mut);
         if (node) {
-            if (!is_mut) node->as.let_decl.is_public = is_public;
-            else node->as.mut_decl.is_public = is_public;
+            if (!is_mut) {
+                node->as.let_decl.is_public = is_public;
+                node->as.let_decl.is_hot    = is_hot;
+            } else {
+                node->as.mut_decl.is_public = is_public;
+                node->as.mut_decl.is_hot    = is_hot;
+            }
         }
         return node;
     }
@@ -1607,17 +1687,55 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_stmt(curium_parser_v2_t* p) 
         size_t col  = p->current.column;
         curium_parser_v2_advance(p);
         curium_parser_v2_expect(p, CURIUM_TOK_LBRACE, "{");
-        
-        /* Greedy consume until } */
+
+        /* FIX #004: raw character capture — read directly from the lexer's source
+         * buffer instead of reassembling from tokens.  Token-based reconstruction
+         * mangles `->`, drops `#`, collapses whitespace, and mis-quotes strings.
+         *
+         * Algorithm: after consuming the opening `{` (done by expect above),
+         * record the current lexer position, then scan raw chars counting braces
+         * until depth reaches zero.  Advance the lexer past the closing `}`.   */
         curium_string_t* code = curium_string_new("");
-        while (p->current.kind != CURIUM_TOK_RBRACE && p->current.kind != CURIUM_TOK_EOF) {
-            if (p->current.lexeme) {
-                curium_string_append(code, p->current.lexeme->data);
-                curium_string_append(code, " "); /* add spaces back between tokens roughly */
+        {
+            /* The lexer position is stored in p->lexer.pos; src in p->lexer.src. */
+            size_t raw_start = p->lexer.pos;
+            size_t raw_i     = raw_start;
+            size_t raw_len   = p->lexer.length;
+            int brace_depth  = 1;
+            while (raw_i < raw_len && brace_depth > 0) {
+                char ch = p->lexer.src[raw_i];
+                if (ch == '{') brace_depth++;
+                else if (ch == '}') {
+                    brace_depth--;
+                    if (brace_depth == 0) break; /* stop before the closing } */
+                }
+                /* Track newlines for line counter accuracy */
+                if (ch == '\n') { p->lexer.line++; p->lexer.column = 0; }
+                else            { p->lexer.column++;                     }
+                raw_i++;
             }
-            curium_parser_v2_advance(p);
+            if (brace_depth != 0) {
+                curium_string_free(code);
+                CURIUM_THROW(CURIUM_ERROR_PARSE, "unclosed `c { ... }` block");
+            }
+            /* Capture the raw content (excluding the closing `}`) */
+            size_t content_len = raw_i - raw_start;
+            if (content_len > 0) {
+                char* tmp = (char*)malloc(content_len + 1);
+                if (tmp) {
+                    memcpy(tmp, p->lexer.src + raw_start, content_len);
+                    tmp[content_len] = '\0';
+                    curium_string_set(code, tmp);
+                    free(tmp);
+                }
+            }
+            /* Advance lexer past the closing `}` and sync parser */
+            p->lexer.pos = raw_i + 1; /* +1 to skip `}` */
+            p->lexer.column++;
+            /* Re-lex the next token so the parser's current token is correct */
+            p->current = curium_lexer_v2_next_token(&p->lexer);
         }
-        curium_parser_v2_expect(p, CURIUM_TOK_RBRACE, "}");
+
         
         curium_ast_v2_node_t* poly = curium_ast_v2_new(CURIUM_AST_V2_POLYGLOT, line, col);
         poly->as.polyglot.code   = code;
@@ -1683,6 +1801,20 @@ static curium_ast_v2_list_t curium_parser_v2_parse(curium_parser_v2_t* p) {
  * Public high-level parsing interface
  * ==========================================================================*/
 curium_ast_v2_list_t curium_parse_v2(const char* src) {
+    /* Phase 2 DOD: allocate a session arena so every AST node lands in a
+     * contiguous 64 KB slab.  Codegen then traverses hot data on the L2
+     * Shelf instead of bouncing to the Fridge for each scattered node.
+     *
+     * The arena is heap-allocated here so it outlives this stack frame and
+     * can be owned by the returned curium_ast_v2_list_t. */
+    curium_ast_arena_t* session_arena = (curium_ast_arena_t*)malloc(sizeof(curium_ast_arena_t));
+    if (session_arena) {
+        curium_ast_arena_init(session_arena);
+        curium_parse_arena = session_arena; /* engage arena path in curium_ast_v2_new() */
+    } else {
+        curium_parse_arena = NULL;          /* OOM: fall back to per-node malloc gracefully */
+    }
+
     curium_parser_v2_t parser;
     curium_parser_v2_init(&parser, src);
 
@@ -1690,19 +1822,39 @@ curium_ast_v2_list_t curium_parse_v2(const char* src) {
     CURIUM_TRY() {
         ast = curium_parser_v2_parse(&parser);
     } CURIUM_CATCH() {
-        /* Catch and destroy, but let curium_doctor/caller see the error via get_message */
+        /* FIX #013: snapshot had_error BEFORE destroy so we don't read freed/zeroed data */
+        int caught_error = parser.had_error;
+        curium_parse_arena = NULL;          /* clear global before any allocs in destroy */
         curium_parser_v2_destroy(&parser);
-        curium_ast_v2_free_list(&ast);
-        /* CURIUM_THROW removed to prevent infinite loop if no outer frame exists */
+        curium_ast_v2_free_list(&ast);      /* frees arena if it was set on ast */
+        if (session_arena && !ast.arena) {
+            /* ast.arena wasn't transferred yet — destroy the session arena here */
+            curium_ast_arena_destroy(session_arena);
+            free(session_arena);
+        }
+        if (caught_error) {
+            curium_error_set(CURIUM_ERROR_PARSE, "aborting due to previous parse errors");
+        }
+        return ast;
     }
 
+    /* FIX #013: capture the flag BEFORE destroy() can touch the struct */
+    int had_error = parser.had_error;
+
+    /* Disengage the global before destroy so any allocs inside destroy use
+     * the legacy path (the arena now belongs to ast, not future allocs). */
+    curium_parse_arena = NULL;
     curium_parser_v2_destroy(&parser);
-    
-    if (parser.had_error) {
-        curium_ast_v2_free_list(&ast);
+
+    /* Transfer arena ownership to the AST list.
+     * curium_ast_v2_free_list() will call curium_arena_destroy() on it. */
+    ast.arena = session_arena;
+
+    if (had_error) {
+        curium_ast_v2_free_list(&ast); /* also destroys ast.arena */
         curium_error_set(CURIUM_ERROR_PARSE, "aborting due to previous parse errors");
     }
-    
-    return ast;
+
+    /* FIX #001: removed duplicate 'return ast;' that was dead code */
     return ast;
 }

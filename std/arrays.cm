@@ -1,0 +1,47 @@
+// Curium Standard Library — dynamic i32 arrays (runtime curium_array_t)
+// import "std/arrays.cm";
+//
+// Opaque handle is usize (pointer-sized); use only through these functions.
+
+pub fn array_i32_new(initial_capacity: int) -> usize {
+    c {
+        size_t cap = (size_t)(curium_initial_capacity > 0 ? curium_initial_capacity : 16);
+        curium_array_t* curium___a = curium_array_new(sizeof(int), cap);
+        return (size_t)(uintptr_t)curium___a;
+    }
+}
+
+pub fn array_i32_free(handle: usize) {
+    c {
+        curium_array_t* curium___a = (curium_array_t*)(uintptr_t)curium_handle;
+        if (curium___a) curium_array_free(curium___a);
+    }
+}
+
+pub fn array_i32_push(handle: usize, val: i32) {
+    c {
+        curium_array_t* curium___a = (curium_array_t*)(uintptr_t)curium_handle;
+        if (!curium___a) return;
+        int curium___v = (int)curium_val;
+        curium_array_push(curium___a, &curium___v);
+    }
+}
+
+pub fn array_i32_len(handle: usize) -> int {
+    c {
+        curium_array_t* curium___a = (curium_array_t*)(uintptr_t)curium_handle;
+        if (!curium___a) return 0;
+        return (int)curium_array_length(curium___a);
+    }
+}
+
+pub fn array_i32_get(handle: usize, index: int) -> i32 {
+    c {
+        curium_array_t* curium___a = (curium_array_t*)(uintptr_t)curium_handle;
+        if (!curium___a) return 0;
+        if (curium_index < 0 || (size_t)curium_index >= curium_array_length(curium___a)) return 0;
+        void* curium___p = curium_array_get(curium___a, (size_t)curium_index);
+        if (!curium___p) return 0;
+        return (*(int*)curium___p);
+    }
+}

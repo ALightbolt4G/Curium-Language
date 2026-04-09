@@ -1,6 +1,7 @@
 #ifndef CURIUM_AST_V2_H
 #define CURIUM_AST_V2_H
 #include "curium/compiler/tokens.h"
+#include "curium/compiler/arena.h"  /* Phase 2 DOD: arena allocator */
 
 /* CM v2 AST - Simplified structure for new syntax */
 
@@ -28,6 +29,7 @@ typedef enum {
     CURIUM_AST_V2_BREAK,        // break;
     CURIUM_AST_V2_CONTINUE,     // continue;
     CURIUM_AST_V2_DYN_OP,       // dyn name in ( arms ) dyn($) { fallback };
+    CURIUM_AST_V2_DYN_FALLBACK, // dyn(cond) { body } or dyn($) { body }
     CURIUM_AST_V2_TRY_CATCH,    // try { } catch (e) { }
     CURIUM_AST_V2_THROW,        // throw expr;
     CURIUM_AST_V2_SPAWN,        // spawn { }
@@ -71,6 +73,7 @@ typedef enum {
     
     /* Match arms */
     CURIUM_AST_V2_MATCH_ARM,    // pattern => expr
+    CURIUM_AST_V2_DYN_CALL_ARM, // pattern => call fn(args)
     
     /* Attributes */
     CURIUM_AST_V2_ATTRIBUTE,    // @route("/path")
@@ -106,6 +109,10 @@ struct curium_ast_v2_node {
             curium_string_t* name;
             int is_public;
             int is_dynamic;
+            /* v5.0 Phase 3: set when #[hot] precedes this declaration.
+             * Codegen emits 'register' to hint the CPU to keep this variable
+             * on the Cutting Board (registers) instead of the Fridge (RAM). */
+            int is_hot;
             curium_ast_v2_node_t* type;
             curium_ast_v2_node_t* init;
         } let_decl, mut_decl;
@@ -199,6 +206,19 @@ struct curium_ast_v2_node {
             curium_ast_v2_node_t* arms;
         } match_expr;
         
+        /* Match arm pattern => expr */
+        struct {
+            curium_ast_v2_node_t* pattern;
+            curium_ast_v2_node_t* expr;
+        } match_arm;
+
+        /* Dyn call arm pattern => call fn(args) */
+        struct {
+            curium_ast_v2_node_t* pattern;
+            curium_string_t* target_fn;
+            curium_ast_v2_node_t* args;
+        } dyn_call_arm;
+
         /* Function call */
         struct {
             curium_ast_v2_node_t* callee;
@@ -245,8 +265,14 @@ struct curium_ast_v2_node {
         struct {
             curium_string_t* name;          /* operator variable name */
             curium_ast_v2_node_t* arms;     /* linked list of match_arm */
-            curium_ast_v2_node_t* fallback; /* dyn($) { ... } body */
+            curium_ast_v2_node_t* fallbacks; /* linked list of dyn_fallback */
         } dyn_op;
+        
+        /* Dynamic fallback */
+        struct {
+            curium_ast_v2_node_t* cond;     /* NULL if catch-all dyn($) */
+            curium_ast_v2_node_t* body;
+        } dyn_fallback;
         
         /* Dynamic operator call expression */
         struct {
@@ -321,11 +347,6 @@ struct curium_ast_v2_node {
             int is_mutable;
         } param;
         
-        /* Match arms */
-        struct {
-            curium_ast_v2_node_t* pattern;
-            curium_ast_v2_node_t* expr;
-        } match_arm;
         
         /* Attributes */
         struct {
@@ -352,6 +373,10 @@ struct curium_ast_v2_node {
 struct curium_ast_v2_list {
     curium_ast_v2_node_t* head;
     curium_ast_v2_node_t* tail;
+    /* Phase 2 DOD: when non-NULL this arena *owns* every node in the list.
+     * curium_ast_v2_free_list() destroys it in O(blocks) rather than O(nodes).
+     * NULL means nodes were individually malloc'd (legacy path). */
+    curium_ast_arena_t*       arena;
 };
 
 /* Function declarations */
@@ -362,5 +387,15 @@ void curium_ast_v2_free_node(curium_ast_v2_node_t* node);
 
 /* Utility functions */
 const char* curium_ast_v2_kind_to_string(curium_ast_v2_kind_t kind);
+
+/* Phase 2 DOD: module-level parse-session arena.
+ * Set to non-NULL by curium_parse_v2() before parsing begins;
+ * cleared to NULL before returning. curium_ast_v2_new() allocates
+ * from this arena when it is set, falling back to curium_alloc()
+ * for any out-of-parse-context allocations (e.g. type-checker builtins).
+ *
+ * NOTE: type is curium_ast_arena_t (compiler-internal), NOT CuriumArena
+ * (runtime Reactor allocator from memory.h). */
+extern curium_ast_arena_t* curium_parse_arena;
 
 #endif

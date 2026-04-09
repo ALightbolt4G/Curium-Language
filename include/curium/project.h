@@ -33,7 +33,7 @@ int curium_project_load_config(curium_project_config_t* config, const char* proj
 const char* curium_project_get_name(curium_project_config_t* config);
 
 /* Get entry point from config or default
- * Returns pointer to entry path, defaults to "src/main.curium"
+ * Returns pointer to entry path, defaults to "src/main.cm"
  */
 const char* curium_project_get_entry(curium_project_config_t* config);
 

@@ -47,4 +47,4 @@ echo -e "${GREEN}✨ CM Compiler successfully built!${NC}"
 cp build/cm cm
 chmod +x cm
 echo -e "${GREEN}✅ Done! The 'cm' binary is now in your root directory.${NC}"
-echo -e "${CYAN}Try it: ./cm run tests/oop_test.curium${NC}"
+echo -e "${CYAN}Try it: ./cm run tests/oop_test.cm${NC}"

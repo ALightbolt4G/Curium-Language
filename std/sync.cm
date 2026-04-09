@@ -1,11 +1,10 @@
-// Curium Standard Library — Sync
+// Curium Standard Library — Sync (mutex, threads)
 // import "std/sync.cm";
-//
-// Provides: mutex_new, mutex_lock, mutex_unlock, mutex_destroy,
-//           thread_spawn, thread_join, atomic_add, atomic_sub
+// Atomics: import "std/atomic.cm";
+
+import "std/atomic.cm";
 
 pub fn mutex_new() -> int {
-    // Returns opaque handle to CMMutex
     c {
         CMMutex curium___m = curium_mutex_init();
         return (int)(intptr_t)curium___m;
@@ -31,43 +30,17 @@ pub fn mutex_destroy(handle: int) {
 }
 
 pub fn atomic_add(ptr: ^int, val: int) -> int {
-    c {
-        #ifdef _WIN32
-            return InterlockedExchangeAdd((long volatile*)curium_ptr, curium_val);
-        #else
-            return __sync_fetch_and_add((int*)curium_ptr, curium_val);
-        #endif
-    }
+    return atomic_fetch_add_i32(ptr, val);
 }
 
 pub fn atomic_sub(ptr: ^int, val: int) -> int {
-    c {
-        #ifdef _WIN32
-            return InterlockedExchangeAdd((long volatile*)curium_ptr, -curium_val);
-        #else
-            return __sync_fetch_and_sub((int*)curium_ptr, curium_val);
-        #endif
-    }
+    return atomic_fetch_sub_i32(ptr, val);
 }
 
 pub fn atomic_cas(ptr: ^int, expected: int, desired: int) -> bool {
-    c {
-        #ifdef _WIN32
-            return InterlockedCompareExchange((long volatile*)curium_ptr, curium_desired, curium_expected) == curium_expected;
-        #else
-            return __sync_bool_compare_and_swap((int*)curium_ptr, curium_expected, curium_desired);
-        #endif
-    }
+    return atomic_cas_i32(ptr, expected, desired);
 }
 
 pub fn spin_wait(iterations: int) {
-    c {
-        for (int curium___i = 0; curium___i < curium_iterations; curium___i++) {
-            #if defined(__x86_64__) || defined(__i386__)
-                __asm__ __volatile__("pause");
-            #elif defined(__aarch64__)
-                __asm__ __volatile__("yield");
-            #endif
-        }
-    }
+    spin_wait_iterations(iterations);
 }

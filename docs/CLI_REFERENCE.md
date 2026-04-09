@@ -4,24 +4,24 @@ Curium provides a powerful command-line interface for managing, building, and ru
 
 ## 🚀 Basic Commands
 
-### **curium init <project-name>**
+### **cm init <project-name>**
 Initializes a new Curium project in a directory with the given name.
 - Creates a `src/` directory and a `curium.json` manifest.
 
-### **curium build [entry.cm]**
+### **cm build [entry.cm]**
 Compiles the specified entry file (or searches for `main.cm` in `src/`).
 - **Options**:
   - `-o <path>`: Specify output binary path.
   - `--emit-c`: Only transpile to C, don't compile.
 
-### **curium run [entry.cm]**
+### **cm run [entry.cm]**
 Builds and immediately executes the Curium program.
-- **Example**: `curium run my_app.cm`
+- **Example**: `cm run my_app.cm`
 
-### **curium check [file.cm]**
+### **cm check [file.cm]**
 Performs a fast type-check without generating C code or binaries. Use this for quick validation during development.
 
-### **curium doctor [project-dir]**
+### **cm doctor [project-dir]**
 Diagnoses project health, checking for missing dependencies, incorrect manifest settings, or environment issues.
 
 ---
@@ -30,33 +30,33 @@ Diagnoses project health, checking for missing dependencies, incorrect manifest 
 
 The Curium package manager is built directly into the CLI.
 
-### **curium packages init [<name>]**
+### **cm packages init [<name>]**
 Initializes a package manifest for a library project.
 
-### **curium packages install [name@version]**
+### **cm packages install [name@version]**
 Installs a remote package from the official Curium registry.
-- **Example**: `curium packages install http@1.0.1`
+- **Example**: `cm packages install http@1.0.1`
 
-### **curium packages remove <name>**
+### **cm packages remove <name>**
 Removes an installed package from the project.
 
-### **curium packages list**
+### **cm packages list**
 Displays all installed packages and their versions.
 
 ---
 
 ## 🔧 Maintenance & Installation
 
-### **curium fmt [file.cm]**
+### **cm fmt [file.cm]**
 Automatically formats your Curium source code according to the standard style guide.
 
-### **curium test**
+### **cm test**
 Discovers and runs all `.cm` files in the `tests/` directory.
 
-### **curium install [-o path]**
+### **cm install [-o path]**
 Installs the compiled binary to your system's global bin directory.
 
-### **curium emitc <entry.cm>**
+### **cm emitc <entry.cm>**
 A specialized command to only output the transpiled C99 source code. Useful for cross-compiling or auditing.
 
 ---

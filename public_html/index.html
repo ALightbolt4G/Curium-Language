@@ -3,59 +3,211 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CM YouTube Downloader</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <title>Curium v4 Documentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Zero External Dependencies - Pure Native JS -->
 </head>
 <body>
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
-    <div class="blob blob-3"></div>
 
-    <main class="container">
-        <!-- Login Section -->
-        <section id="login-section" class="glass-card active">
-            <div class="header">
-                <h2>Welcome to CM</h2>
-                <p>Sign in to access the Downloader</p>
-            </div>
-            <form id="login-form">
-                <div class="input-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" placeholder="Enter your username" required>
-                </div>
-                <div class="input-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Enter your password" required>
-                </div>
-                <button type="submit" class="btn primary-btn">Login to CM 🚀</button>
-                <div id="login-error" class="error-msg"></div>
-            </form>
-        </section>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar"></aside>
 
-        <!-- Downloader Section -->
-        <section id="downloader-section" class="glass-card hidden">
-            <div class="header">
-                <h2>CM Video Downloader</h2>
-                <p>Welcome, <span id="user-display">User</span>! 🎥</p>
-            </div>
-            
-            <form id="download-form">
-                <div class="input-group">
-                    <label for="youtube-url">YouTube URL</label>
-                    <input type="url" id="youtube-url" placeholder="https://www.youtube.com/watch?v=..." required>
+        <!-- Main Documentation Area -->
+        <main class="main-content" id="main-content"></main>
+    </div>
+
+    <script type="module">
+        const DOC_PAGES = [
+            {
+                category: "Getting Started",
+                items: [
+                {
+                    id: 'intro',
+                    title: 'Introduction to v4.0',
+                    subtitle: 'The C-Performance Safe Systems Language',
+                    description: 'Curium is a next-generation systems programming language transpiling down to raw C11 while guaranteeing memory safety and ergonomics commonly found in C# and Go.',
+                    sections: [
+                    {
+                        heading: 'Hello Curium',
+                        text: 'Setting up a standard application. Type-agnostic printing is handled flawlessly at compile time via our robust AST.',
+                        code: `fn main() {\n    mut name = "Developer";\n    mut version = 4.0;\n    \n    // Automatic string interpolation\n    println("Hello {name}, welcome to Curium v{version}!");\n}`
+                    }
+                    ]
+                },
+                {
+                    id: 'install',
+                    title: 'Installation & Setup',
+                    subtitle: 'Building from source',
+                    description: 'Curium utilizes CMake and links intrinsically against standard GCC, Clang, or TCC drivers.',
+                    sections: [
+                    {
+                        heading: 'Local Compilation',
+                        text: 'Ensure you have MinGW or TCC installed on your system. Run standard CMake builds.',
+                        code: `cmake -B build -DCMAKE_BUILD_TYPE=Release\ncmake --build build --config Release\n\n// Run the compiler\ncm run src/main.cm`
+                    }
+                    ]
+                }
+                ]
+            },
+            {
+                category: "Language Guide",
+                items: [
+                {
+                    id: 'dyn_ops',
+                    title: 'Dynamic Operators',
+                    subtitle: 'The flagship mechanic',
+                    description: 'You dynamically map string/evaluation logic during runtime directly onto custom infix operators. The AST forcefully mandates fallback logic parsing via the dyn($) mechanism to heavily guarantee system safety during unknown evaluation injections.',
+                    sections: [
+                    {
+                        heading: 'Writing dynamic ops',
+                        text: 'Instead of complex method dispatch systems, define decoupled operators locally!',
+                        code: `mut op = "custom_add";\n\ndyn op in (\n    "custom_add" => { return x + y + 1; },\n    "avg" => { return (x + y) / 2; }\n) dyn($) {\n    println("Fallback triggered! Unknown action.");\n    return 0;\n};\n\nlet res = x op y;`
+                    }
+                    ]
+                },
+                {
+                    id: 'safety',
+                    title: 'Safe Pointers (^)',
+                    subtitle: 'Invisible RC Lifetimes',
+                    description: 'Dangling pointers are an explicit impossibility under safe structures. Using the ^ notation delegates memory allocation internally tracking references using the runtime garbage pool. Auto free triggers when it leaves scope completely natively.',
+                    sections: [
+                    {
+                        heading: 'Leveraging pointers',
+                        text: 'Perfect for graphs and nodes.',
+                        code: `struct Node {\n    value: int;\n    next: ?^Node; // Optional Safe Reference\n}\n\nfn create_list() {\n    mut head: ^Node = new Node { value: 1, next: None };\n    mut tail: ^Node = new Node { value: 2, next: None };\n    head^.next = Some(tail);\n}`
+                    }
+                    ]
+                },
+                {
+                    id: 'concurrency',
+                    title: 'Reactors & Memory',
+                    subtitle: 'Zero Overhead SLAB',
+                    description: 'For extremely deterministic code environments like arrays, physics loops, or math matrix rendering, drop GC tracking overhead automatically using reactor contexts.',
+                    sections: [
+                    {
+                        heading: 'Arena SLAB',
+                        text: 'Wipes chunks instantly upon scope termination without individually tearing down node connections.',
+                        code: `fn generate_matrix() {\n    reactor arena(2048) { \n        // 2KB slab context initialized\n        for i in 0..100 {\n            mut temp: ^int = new (i * 2); \n            // All new instantiations within the tree naturally link up to the arena natively!\n        }\n    } // Complete annihilation of the 2KB chunk in <1ms!\n}`
+                    }
+                    ]
+                }
+                ]
+            },
+            {
+                category: "Under the Hood",
+                items: [
+                {
+                    id: 'c11',
+                    title: 'Polyglot & AST',
+                    subtitle: 'True C-Interop',
+                    description: 'Because Curium translates internally directly into highly structured `.c` outputs, native interaction with C features operates unhindered. This effectively functions as a massive, extremely safe macro engine on top of standard C.',
+                    sections: [
+                    {
+                        heading: 'Native Integration',
+                        text: 'By using the c { } block, the AST bypasses evaluation directly linking output C variables gracefully to the raw backend compiler hook pipeline.',
+                        code: `fn get_native_time() {\n    c {\n        // Included directly!\n        printf("I am bypassing the AST directly into C11!\\\\n");\n    }\n}`
+                    }
+                    ]
+                }
+                ]
+            }
+        ];
+
+        let activePageId = DOC_PAGES[0].items[0].id;
+
+        const highlightSyntax = (code) => {
+            let text = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            text = text.replace(new RegExp("\\\\b(fn|let|mut|struct|trait|impl|return|dyn|in|spawn|new|reactor|arena|for|while|if|else)\\\\b", "g"), '<span class="keyword">$1</span>');
+            text = text.replace(new RegExp("\\\\b(int|string|strnum|float|bool|Node)\\\\b", "g"), '<span class="type">$1</span>');
+            text = text.replace(new RegExp("([\"'])(.*?)([\"'])", "g"), '<span class="string">$1$2$3</span>');
+            text = text.replace(new RegExp("(//.*)", "g"), '<span class="comment">$1</span>');
+            text = text.replace(new RegExp("([!+\\\\*/=><?^$-])\\\\b", "g"), '<span class="operator">$1</span>');
+            text = text.replace(new RegExp("(\\\\b\\\\d+\\\\b)", "g"), '<span class="number">$1</span>');
+            text = text.replace(new RegExp("([a-zA-Z_]\\\\w*)(?=\\\\s*\\\\())", "g"), '<span class="function">$1</span>');
+            return text;
+        };
+
+        const renderSidebar = () => {
+            const sidebarHtml = `
+                <div class="brand">
+                    <h1>Curium</h1>
                 </div>
+                ${DOC_PAGES.map((group) => `
+                    <div class="nav-section">
+                        <h4 class="nav-header">${group.category}</h4>
+                        ${group.items.map((item) => `
+                            <div 
+                                class="nav-item ${activePageId === item.id ? 'active' : ''}" 
+                                data-id="${item.id}"
+                            >
+                                ${item.title}
+                            </div>
+                        `).join('')}
+                    </div>
+                `).join('')}
+            `;
+            document.getElementById('sidebar').innerHTML = sidebarHtml;
+
+            // Bind click events
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    activePageId = e.target.getAttribute('data-id');
+                    render();
+                });
+            });
+        };
+
+        const renderMainContent = () => {
+            // Find active page object
+            let activeObj = null;
+            for (let g of DOC_PAGES) {
+                for (let i of g.items) {
+                    if (i.id === activePageId) activeObj = i;
+                }
+            }
+
+            if (!activeObj) return;
+
+            const mainHtml = `
+                <header class="doc-header">
+                    <h2>${activeObj.title}</h2>
+                    <p>${activeObj.description}</p>
+                </header>
                 
-                <button type="submit" id="download-btn" class="btn download-btn">
-                    <span id="btn-text">Download Video ⬇️</span>
-                    <div id="btn-spinner" class="spinner hidden"></div>
-                </button>
-                <div id="download-status" class="status-msg"></div>
-            </form>
+                ${activeObj.sections.map((sec) => `
+                    <section class="doc-section">
+                        <h3>${sec.heading}</h3>
+                        <p>${sec.text}</p>
+                        
+                        <div class="code-window">
+                            <div class="code-header">
+                                <div class="mac-btn close"></div>
+                                <div class="mac-btn min"></div>
+                                <div class="mac-btn max"></div>
+                            </div>
+                            <pre><code>${highlightSyntax(sec.code)}</code></pre>
+                        </div>
+                    </section>
+                `).join('')}
+            `;
+            
+            document.getElementById('main-content').innerHTML = mainHtml;
+        };
 
-            <button class="btn logout-btn" onclick="logout()">Logout</button>
-        </section>
-    </main>
-    <script src="script.js"></script>
+        const render = () => {
+            renderSidebar();
+            renderMainContent();
+        };
+
+        // Initial launch
+        document.addEventListener('DOMContentLoaded', () => {
+            render();
+        });
+    </script>
 </body>
 </html>

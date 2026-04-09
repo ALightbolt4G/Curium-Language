@@ -372,7 +372,6 @@ curium_token_t curium_lexer_v2_next_token(curium_lexer_t* lx) {
             }
 
             /* Keywords — ordered by frequency for speed */
-            if (len == 1  && ident[0] == 'c')           return curium_make_token(CURIUM_TOK_KW_C,        ident, len, start_line, start_col);
             if (len == 2  && strncmp(ident, "fn",       2)  == 0) return curium_make_token(CURIUM_TOK_KW_FN,       ident, len, start_line, start_col);
             if (len == 2  && strncmp(ident, "if",       2)  == 0) return curium_make_token(CURIUM_TOK_KW_IF,       ident, len, start_line, start_col);
             if (len == 2  && strncmp(ident, "Ok",       2)  == 0) return curium_make_token(CURIUM_TOK_KW_OK,       ident, len, start_line, start_col);
@@ -386,6 +385,7 @@ curium_token_t curium_lexer_v2_next_token(curium_lexer_t* lx) {
             if (len == 3  && strncmp(ident, "map",      3)  == 0) return curium_make_token(CURIUM_TOK_KW_MAP,      ident, len, start_line, start_col);
             if (len == 3  && strncmp(ident, "Err",      3)  == 0) return curium_make_token(CURIUM_TOK_KW_ERR,      ident, len, start_line, start_col);
             if (len == 3  && strncmp(ident, "pub",      3)  == 0) return curium_make_token(CURIUM_TOK_KW_PUBLIC,   ident, len, start_line, start_col);
+            if (len == 4  && strncmp(ident, "call",     4)  == 0) return curium_make_token(CURIUM_TOK_KW_CALL,     ident, len, start_line, start_col);
             if (len == 4  && strncmp(ident, "impl",     4)  == 0) return curium_make_token(CURIUM_TOK_KW_IMPL,     ident, len, start_line, start_col);
             if (len == 4  && strncmp(ident, "Some",     4)  == 0) return curium_make_token(CURIUM_TOK_KW_SOME,     ident, len, start_line, start_col);
             if (len == 4  && strncmp(ident, "None",     4)  == 0) return curium_make_token(CURIUM_TOK_KW_NONE,     ident, len, start_line, start_col);
@@ -442,6 +442,40 @@ curium_token_t curium_lexer_v2_next_token(curium_lexer_t* lx) {
             return curium_make_token(CURIUM_TOK_IDENTIFIER, ident, len, start_line, start_col);
         }
     }
+
+    /* v5.0: Developer Cache Control — #[attribute] syntax
+     * #[hot]  tells the codegen to hint the C compiler to keep the
+     * declared variable in a CPU register (register keyword + pragma).
+     * Lexer rule: '#' followed immediately by '[' opens an attribute.
+     * The inner identifier is captured as the lexeme.                   */
+    if (c == '#' && curium_lexer_v2_peek(lx) == '[') {
+        curium_lexer_v2_next(lx); /* consume '[' */
+        /* Skip optional whitespace inside brackets */
+        while (curium_lexer_v2_peek(lx) == ' ' || curium_lexer_v2_peek(lx) == '\t') {
+            curium_lexer_v2_next(lx);
+        }
+        /* Capture the attribute name */
+        const char* attr_start = lx->src + lx->pos;
+        int attr_len = 0;
+        while (curium_lexer_v2_peek(lx) != ']' &&
+               curium_lexer_v2_peek(lx) != '\0' &&
+               curium_lexer_v2_peek(lx) != '\n') {
+            curium_lexer_v2_next(lx);
+            attr_len++;
+        }
+        if (curium_lexer_v2_peek(lx) == ']') {
+            curium_lexer_v2_next(lx); /* consume ']' */
+        }
+        /* Trim trailing whitespace from captured name */
+        while (attr_len > 0 && (attr_start[attr_len - 1] == ' ' ||
+                                  attr_start[attr_len - 1] == '\t')) {
+            attr_len--;
+        }
+        return curium_make_token(CURIUM_TOK_HASH_ATTR, attr_start, (size_t)attr_len,
+                                 start_line, start_col);
+    }
+
+
 
     /* Unknown character — report as an error token (single char identifier) */
     {

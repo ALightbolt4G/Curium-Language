@@ -1,0 +1,103 @@
+:root {
+  --primary: #4ade80;
+  --secondary: #3b82f6;
+  --bg-color: #020617;
+  --surface: rgba(15, 23, 42, 0.75);
+  --surface-hover: rgba(30, 41, 59, 0.85);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: rgba(255, 255, 255, 0.08);
+  --code-bg: #000000;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Background Gradients */
+.blob {
+  position: absolute; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.35;
+  animation: float 12s ease-in-out infinite alternate;
+}
+.blob-1 { top: -20%; left: -10%; width: 50vw; height: 50vw; background: var(--primary); animation-delay: 0s; }
+.blob-2 { bottom: -20%; right: -10%; width: 60vw; height: 60vw; background: var(--secondary); animation-delay: -5s; }
+
+@keyframes float {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(5%, 5%) scale(1.1); }
+}
+
+/* Layout */
+.app-container {
+  display: flex; height: 100vh; width: 100vw; backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+}
+
+/* Sidebar */
+.sidebar {
+  width: 320px; background: rgba(2, 6, 23, 0.6); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 2rem 1.5rem; gap: 2rem; overflow-y: auto;
+}
+
+.brand {
+  display: flex; align-items: center; gap: 0.75rem; 
+}
+.brand h1 { font-size: 1.8rem; font-weight: 800; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+.nav-section { display: flex; flex-direction: column; gap: 0.5rem; }
+.nav-header { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 700; }
+
+.nav-item {
+  padding: 0.75rem 1rem; border-radius: 8px; color: var(--text-muted); font-weight: 500;
+  cursor: pointer; transition: all 0.2s ease; display: flex; justify-content: space-between; align-items: center;
+}
+.nav-item:hover { background: var(--surface-hover); color: var(--text-main); transform: translateX(4px); }
+.nav-item.active { background: rgba(74, 222, 128, 0.1); color: var(--primary); font-weight: 600; border-right: 3px solid var(--primary); }
+
+/* Main Content Area */
+.main-content {
+  flex: 1; overflow-y: auto; padding: 4rem 10%; display: flex; flex-direction: column; gap: 2.5rem;scroll-behavior: smooth;
+}
+
+.doc-header h2 { font-size: 3rem; font-weight: 800; margin-bottom: 1rem; color: #fff; }
+.doc-header p { font-size: 1.25rem; color: var(--text-muted); line-height: 1.6; }
+
+.doc-section {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 2.5rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 1.5rem;
+}
+
+.doc-section h3 { font-size: 1.5rem; color: #fff; display: flex; align-items: center; gap: 0.5rem; }
+.doc-section p { font-size: 1.1rem; color: #cbd5e1; line-height: 1.7; }
+
+/* Code Blocks */
+.code-window {
+  background: var(--code-bg); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; margin-top: 1rem;
+}
+.code-header {
+  background: rgba(255,255,255,0.05); padding: 0.75rem 1rem; display: flex; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.mac-btn { width: 12px; height: 12px; border-radius: 50%; }
+.mac-btn.close { background: #ff5f56; } .mac-btn.min { background: #ffbd2e; } .mac-btn.max { background: #27c93f; }
+
+pre { padding: 1.5rem; overflow-x: auto; font-size: 0.95rem; line-height: 1.5; font-family: 'Fira Code', monospace; }
+
+/* Syntax Highlighting */
+pre code { color: #abb2bf; }
+pre code .keyword { color: #c678dd; } 
+pre code .function { color: #61afef; } 
+pre code .string { color: #98c379; } 
+pre code .comment { color: #5c6370; font-style: italic; } 
+pre code .number { color: #d19a66; } 
+pre code .operator { color: #56b6c2; } 
+pre code .type { color: #e5c07b; }
+
+@media (max-width: 900px) {
+  .app-container { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; flex-direction: row; flex-wrap: wrap; padding: 1rem; border-right: none; border-bottom: 1px solid var(--border); }
+  .main-content { padding: 2rem 5%; }
+}

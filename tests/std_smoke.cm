@@ -1,0 +1,23 @@
+import "std/math.cm";
+import "std/arrays.cm";
+
+fn main() {
+    println("=== std smoke ===");
+    let m: int = max(3, 9);
+    if (m == 9) {
+        println("max ok");
+    }
+    let h: usize = array_i32_new(4);
+    array_i32_push(h, 10);
+    array_i32_push(h, 20);
+    let len: int = array_i32_len(h);
+    if (len == 2) {
+        println("array len ok");
+    }
+    let v: int = array_i32_get(h, 0);
+    if (v == 10) {
+        println("array get ok");
+    }
+    array_i32_free(h);
+    println("std smoke ok");
+}

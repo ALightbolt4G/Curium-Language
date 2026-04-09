@@ -52,11 +52,12 @@ pub fn fmt_bin(val: int) -> string {
         unsigned int curium___v = (unsigned int)curium_val;
         int curium___pos = 2;
         int curium___started = 0;
-        for (int curium___i = 31; curium___i >= 0; curium___i--) {
+        for (int curium___i = 31; curium___i >= 0; curium___i = curium___i - 1) {
             int curium___bit = (curium___v >> curium___i) & 1;
             if (curium___bit || curium___started || curium___i == 0) {
-                curium___buf[curium___pos++] = '0' + curium___bit;
-                curium___started = 1;
+                (void)(curium___buf[curium___pos] = '0' + curium___bit,
+                    curium___pos = curium___pos + 1,
+                    curium___started = 1);
             }
         }
         curium___buf[curium___pos] = '\0';
@@ -70,14 +71,15 @@ pub fn fmt_pad_left(text: string, width: int, pad_char: string) -> string {
         if (curium___text_len >= curium_width) return curium_string_new(curium_text->data);
         int curium___pad_count = curium_width - curium___text_len;
         char curium___pc = curium_pad_char->data[0];
-        char* curium___buf = malloc(curium_width + 1);
-        for (int curium___i = 0; curium___i < curium___pad_count; curium___i++) {
+        char* curium___buf = (char*)curium_alloc((size_t)curium_width + 1, "fmt_pad");
+        for (int curium___i = 0; curium___i < curium___pad_count; curium___i = curium___i + 1) {
             curium___buf[curium___i] = curium___pc;
         }
-        memcpy(curium___buf + curium___pad_count, curium_text->data, curium___text_len);
+        const char* curium___td = curium_text->data;
+        memcpy(curium___buf + curium___pad_count, curium___td, curium___text_len);
         curium___buf[curium_width] = '\0';
         curium_string_t* curium___result = curium_string_new(curium___buf);
-        free(curium___buf);
+        curium_free(curium___buf);
         return curium___result;
     }
 }
@@ -88,14 +90,15 @@ pub fn fmt_pad_right(text: string, width: int, pad_char: string) -> string {
         if (curium___text_len >= curium_width) return curium_string_new(curium_text->data);
         int curium___pad_count = curium_width - curium___text_len;
         char curium___pc = curium_pad_char->data[0];
-        char* curium___buf = malloc(curium_width + 1);
-        memcpy(curium___buf, curium_text->data, curium___text_len);
-        for (int curium___i = 0; curium___i < curium___pad_count; curium___i++) {
+        char* curium___buf = (char*)curium_alloc((size_t)curium_width + 1, "fmt_pad");
+        const char* curium___tdr = curium_text->data;
+        memcpy(curium___buf, curium___tdr, curium___text_len);
+        for (int curium___i = 0; curium___i < curium___pad_count; curium___i = curium___i + 1) {
             curium___buf[curium___text_len + curium___i] = curium___pc;
         }
         curium___buf[curium_width] = '\0';
         curium_string_t* curium___result = curium_string_new(curium___buf);
-        free(curium___buf);
+        curium_free(curium___buf);
         return curium___result;
     }
 }
@@ -119,8 +122,9 @@ pub fn fmt_lower(text: string) -> string {
 pub fn fmt_repeat(text: string, count: int) -> string {
     c {
         curium_string_t* curium___result = curium_string_new("");
-        for (int curium___i = 0; curium___i < curium_count; curium___i++) {
-            curium_string_append(curium___result, curium_text->data);
+        const char* curium___tr = curium_text->data;
+        for (int curium___i = 0; curium___i < curium_count; curium___i = curium___i + 1) {
+            curium_string_append(curium___result, curium___tr);
         }
         return curium___result;
     }
@@ -128,16 +132,18 @@ pub fn fmt_repeat(text: string, count: int) -> string {
 
 pub fn fmt_trim(text: string) -> string {
     c {
-        const char* curium___start = curium_text->data;
-        const char* curium___end = curium_text->data + curium_text->length - 1;
-        while (*curium___start == ' ' || *curium___start == '\t' || *curium___start == '\n' || *curium___start == '\r') curium___start++;
-        while (curium___end > curium___start && (*curium___end == ' ' || *curium___end == '\t' || *curium___end == '\n' || *curium___end == '\r')) curium___end--;
+        const char* curium___td = curium_text->data;
+        size_t curium___tl = (size_t)curium_text->length;
+        const char* curium___start = curium___td;
+        const char* curium___end = curium___td + curium___tl - 1;
+        while (*curium___start == ' ' || *curium___start == '\t' || *curium___start == '\n' || *curium___start == '\r') curium___start = curium___start + 1;
+        while (curium___end > curium___start && (*curium___end == ' ' || *curium___end == '\t' || *curium___end == '\n' || *curium___end == '\r')) curium___end = curium___end - 1;
         size_t curium___len = curium___end - curium___start + 1;
-        char* curium___buf = malloc(curium___len + 1);
+        char* curium___buf = (char*)curium_alloc(curium___len + 1, "fmt_trim");
         memcpy(curium___buf, curium___start, curium___len);
         curium___buf[curium___len] = '\0';
         curium_string_t* curium___result = curium_string_new(curium___buf);
-        free(curium___buf);
+        curium_free(curium___buf);
         return curium___result;
     }
 }

@@ -1,4 +1,4 @@
-import "tests/lib.curium";
+import "tests/lib.cm";
 
 fn main() {
     println("Testing CM v2.05 features...\n");

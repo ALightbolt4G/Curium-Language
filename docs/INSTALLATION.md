@@ -49,12 +49,12 @@ After building, you can install the CLI globally:
 
 ### Windows (PowerShell)
 ```powershell
-.\build\curium.exe install
+.\build\cm.exe install
 ```
 
 ### Linux/macOS
 ```bash
-sudo ./build/curium install
+sudo ./build/cm install
 ```
 
 ---
@@ -62,12 +62,12 @@ sudo ./build/curium install
 ## 🧪 Step 3: Verifying the Installation
 
 1.  Open a new terminal session.
-2.  Run `curium -v` to check the version.
+2.  Run `cm -v` to check the version.
 3.  Initialize a test project:
     ```bash
-    curium init hello_cm
+    cm init hello_cm
     cd hello_cm
-    curium run
+    cm run
     ```
 
 If you see `Hello World!`, your installation is complete!

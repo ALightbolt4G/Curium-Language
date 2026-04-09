@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    branches: [ "main", "master" ]
   pull_request:
+    branches: [ "main", "master" ]
 
 jobs:
   build-test:
@@ -14,6 +16,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install TCC (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y tcc
+
+      - name: Install TCC (Windows)
+        if: runner.os == 'Windows'
+        run: choco install -y tcc
 
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release

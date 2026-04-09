@@ -1,4 +1,4 @@
-# ⚡ Curium Language v3.0
+# ⚡ Curium Language v4.0
 
 **Professional C#-like/Go-hybrid Language for C-performance Systems**
 
@@ -24,19 +24,23 @@ Download and run the installer for your platform:
 
 ### Your First Program
 
-Create a file named `hello.curium`:
+Create a file named `hello.cm`:
 
 ```cm
 fn main() {
-    println("Hello, Curium v3!");
+    println("Hello, Curium v4!");
 }
 ```
 
-Run it immediately:
+Run it immediately after building the `cm` CLI (see [Installation](docs/INSTALLATION.md)):
 
 ```bash
-curium run hello.curium
+cm run hello.cm
 ```
+
+### GitHub and editor highlighting
+
+Repository language stats on GitHub classify `.cm` files as **C** (see [`.gitattributes`](.gitattributes)) because Linguist does not ship a Curium grammar. For accurate Curium syntax highlighting in VS Code, use the extension under [`vscode-extension/cm-language/`](vscode-extension/cm-language/).
 
 ### 🌊 Dynamic Operators
 
@@ -52,7 +56,9 @@ fn main() {
         "+" => { return x + y; },
         "*" => { return x * y; },
         "avg" => { return (x + y) / 2; }
-    ) dyn($) {
+    ) dyn(op == "max") {
+        return x > y ? x : y;
+    } dyn($) {
         println("Unknown operator!");
         return 0;
     };
@@ -67,7 +73,7 @@ Explore the full Curium documentation suite:
 
 - 📘 **[Language Guide](docs/LANGUAGE_GUIDE.md)**: A high-level introduction for newcomers.
 - 📖 **[Syntax Reference](docs/SYNTAX_REFERENCE.md)**: A complete, A-Z manual of every keyword and operator.
-- 🛠️ **[CLI Reference](docs/CLI_REFERENCE.md)**: Detailed guide for the `curium` command and package manager.
+- 🛠️ **[CLI Reference](docs/CLI_REFERENCE.md)**: Detailed guide for the `cm` command and package manager.
 - 🏢 **[Project Guide](docs/PROJECT_GUIDE.md)**: Information on project structure and modularity.
 - 🔌 **[Compiler Internals](docs/INTERNALS.md)**: Deep dive into the Lexer, Parser, and C-codegen.
 - 🚀 **[Installation Guide](docs/INSTALLATION.md)**: Setup instructions for all platforms.

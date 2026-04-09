@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Curium VERSION 4.0.0 LANGUAGES C)
+project(Curium VERSION 5.0.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED True)
@@ -75,6 +75,7 @@ set(CURIUM_COMPILER_SOURCES
     src/compiler/lexer/lexer_v2.c
     src/compiler/ast/ast.c
     src/compiler/ast/ast_v2.c
+    src/compiler/arena.c
     src/compiler/parser/parser.c
     src/compiler/parser/parser_v2.c
     src/compiler/codegen/codegen_v2.c
@@ -89,12 +90,25 @@ add_library(curium_compiler STATIC ${CURIUM_COMPILER_SOURCES})
 target_link_libraries(curium_compiler cm)
 target_include_directories(curium_compiler PUBLIC include src)
 
+# Release: optimize the compiler itself for faster builds of user code
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(curium_compiler PRIVATE $<$<CONFIG:Release>:-O3>)
+elseif(MSVC)
+    target_compile_options(curium_compiler PRIVATE $<$<CONFIG:Release>:/O2>)
+endif()
+
 # CLI executable
 add_executable(curium_cli src/curium_cli.c)
 target_link_libraries(curium_cli curium_compiler cm)
 
-# Name the resulting executable 'curium' and copy it to the project root
-set_target_properties(curium_cli PROPERTIES RUNTIME_OUTPUT_NAME "curium")
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(curium_cli PRIVATE $<$<CONFIG:Release>:-O3>)
+elseif(MSVC)
+    target_compile_options(curium_cli PRIVATE $<$<CONFIG:Release>:/O2>)
+endif()
+
+# Public CLI name is `cm` (static library target remains `cm` as libcm.a / cm.lib)
+set_target_properties(curium_cli PROPERTIES RUNTIME_OUTPUT_NAME "cm")
 
 # Package Manager CLI executable
 add_executable(cur_cli src/cur_cli.c)

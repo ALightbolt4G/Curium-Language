@@ -29,7 +29,7 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "Executable is located at: $exePath" -ForegroundColor Green
     Write-Host "Copying cm.exe to root directory..." -ForegroundColor Cyan
     Copy-Item $exePath -Destination ".\cm.exe" -Force
-    Write-Host "✅ Done! You can now use: .\cm.exe run tests\oop_test.curium" -ForegroundColor Green
+    Write-Host "✅ Done! You can now use: .\cm.exe run tests\oop_test.cm" -ForegroundColor Green
 } else {
     Write-Host "❌ Build failed!" -ForegroundColor Red
     exit 1

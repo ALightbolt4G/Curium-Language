@@ -6,7 +6,7 @@ This document outlines the standard conventions and project structure recommende
 
 ## 🏗️ Standard Folder Structure
 
-While Curium provides flexibility, following these conventions ensures compatibility with the `curium` CLI and package manager.
+While Curium provides flexibility, following these conventions ensures compatibility with the `cm` CLI and package manager.
 
 ```text
 my_project/
@@ -81,6 +81,12 @@ Curium makes testing easy. Simply place your test scripts in the `tests/` folder
 
 1.  Create a file like `tests/math_test.cm`.
 2.  Write your test logic as a `fn main()`.
-3.  Run `curium test` from the project root.
+3.  Run `cm test` from the project root.
 
 The CLI will automatically find, compile, and run every `.cm` file in the folder and report passes or failures.
+
+---
+
+## GitHub and `.cm` on github.com
+
+GitHub’s language bar uses [Linguist](https://github.com/github/linguist). This repository maps `*.cm` to **C** in [`.gitattributes`](../.gitattributes) so files count as code and receive C-like highlighting. Curium-specific highlighting is provided by the VS Code extension in [`vscode-extension/cm-language/`](../vscode-extension/cm-language/).
