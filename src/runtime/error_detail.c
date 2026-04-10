@@ -15,7 +15,7 @@
 #define curium_fileno fileno
 #endif
 
-static __thread curium_error_detail_t curium_current_error_detail;
+static CURIUM_TLS curium_error_detail_t curium_current_error_detail;
 
 void curium_error_detail_init(curium_error_detail_t* detail) {
     if (!detail) return;

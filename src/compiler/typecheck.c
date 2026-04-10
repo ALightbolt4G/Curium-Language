@@ -22,6 +22,7 @@ typedef struct curium_type_info {
     int is_mutable;                  /* 1 if mutable, 0 if immutable */
     int is_initialized;              /* 1 if variable has been assigned */
     int is_error_type;               /* 1 if ?T or Result<T,E> */
+    int is_builtin;                  /* 1 if compiler built-in */
     struct curium_type_info* next;
 } curium_type_info_t;
 
@@ -86,6 +87,7 @@ static curium_type_info_t* curium_type_info_copy(curium_type_info_t* src) {
     if (copy) {
         copy->is_initialized = src->is_initialized;
         copy->is_error_type = src->is_error_type;
+        copy->is_builtin = src->is_builtin;
     }
     return copy;
 }
@@ -140,11 +142,13 @@ static int curium_scope_define(curium_typecheck_ctx_t* ctx, curium_scope_t* scop
     if (!scope || !name || !info) return 0;
     
     /* Check for redefinition in current scope */
-    if (curium_map_get(scope->bindings, name)) {
+    curium_type_info_t** existing = (curium_type_info_t**)curium_map_get(scope->bindings, name);
+    if (existing && *existing && !(*existing)->is_builtin) {
         if (ctx) curium_typecheck_report_error(ctx, 0, 0, "Choose a different name", "Variable '%s' already defined in this scope", name);
         return 0;
     }
     
+    /* If it was a built-in, we are now overriding it in this scope */
     curium_map_set(scope->bindings, name, &info, sizeof(curium_type_info_t*));
     return 1;
 }
@@ -163,14 +167,58 @@ static void curium_typecheck_pop_scope(curium_typecheck_ctx_t* ctx) {
     }
 }
 
-/* Type comparison - basic name matching for now */
+/* Type comparison - with numeric coercion support */
 static int curium_types_equal(curium_ast_v2_node_t* a, curium_ast_v2_node_t* b) {
-    if (!a || !b) return 0;
-    if (a->kind != b->kind) return 0;
+    if (a == b) return 1;
+    if (!a || !b) return 1; /* Treat unknown/missing types as 'any' for inference compatibility */
+
+    /* Wildcard 'any' matches anything */
+    if (a->kind == CURIUM_AST_V2_TYPE_NAMED && strcmp(a->as.type_named.name->data, "any") == 0) return 1;
+    if (b->kind == CURIUM_AST_V2_TYPE_NAMED && strcmp(b->as.type_named.name->data, "any") == 0) return 1;
+
+    /* 'dyn' matches anything */
+    if (a->kind == CURIUM_AST_V2_TYPE_DYN || b->kind == CURIUM_AST_V2_TYPE_DYN) return 1;
+
+    if (a->kind != b->kind) {
+        /* Allow named types to match their struct/union definitions */
+        if (a->kind == CURIUM_AST_V2_TYPE_NAMED && (b->kind == CURIUM_AST_V2_STRUCT || b->kind == CURIUM_AST_V2_UNION)) {
+            if (b->as.struct_decl.name && strcmp(a->as.type_named.name->data, b->as.struct_decl.name->data) == 0) return 1;
+        }
+        if (b->kind == CURIUM_AST_V2_TYPE_NAMED && (a->kind == CURIUM_AST_V2_STRUCT || a->kind == CURIUM_AST_V2_UNION)) {
+            if (a->as.struct_decl.name && strcmp(b->as.type_named.name->data, a->as.struct_decl.name->data) == 0) return 1;
+        }
+
+        /* Allow strnum to match string or int/float */
+        if (a->kind == CURIUM_AST_V2_TYPE_STRNUM && b->kind == CURIUM_AST_V2_TYPE_NAMED) {
+            const char* name = b->as.type_named.name->data;
+            if (strcmp(name, "string") == 0 || strcmp(name, "int") == 0 || strcmp(name, "float") == 0) return 1;
+        }
+        if (b->kind == CURIUM_AST_V2_TYPE_STRNUM && a->kind == CURIUM_AST_V2_TYPE_NAMED) {
+            const char* name = a->as.type_named.name->data;
+            if (strcmp(name, "string") == 0 || strcmp(name, "int") == 0 || strcmp(name, "float") == 0) return 1;
+        }
+        return 0;
+    }
     
     switch (a->kind) {
-        case CURIUM_AST_V2_TYPE_NAMED:
-            return strcmp(a->as.type_named.name->data, b->as.type_named.name->data) == 0;
+        case CURIUM_AST_V2_TYPE_NAMED: {
+            const char* n1 = a->as.type_named.name->data;
+            const char* n2 = b->as.type_named.name->data;
+            if (strcmp(n1, n2) == 0) return 1;
+            if (strcmp(n1, "any") == 0 || strcmp(n2, "any") == 0) return 1;
+
+            /* Allow numeric aliases */
+            if ((strcmp(n1, "int") == 0 && (strcmp(n2, "i32") == 0 || strcmp(n2, "intptr") == 0)) ||
+                (strcmp(n2, "int") == 0 && (strcmp(n1, "i32") == 0 || strcmp(n1, "intptr") == 0))) return 1;
+            if ((strcmp(n1, "uint") == 0 && (strcmp(n2, "u32") == 0 || strcmp(n2, "usize") == 0)) ||
+                (strcmp(n2, "uint") == 0 && (strcmp(n1, "u32") == 0 || strcmp(n1, "usize") == 0))) return 1;
+            if ((strcmp(n1, "usize") == 0 && (strcmp(n2, "int") == 0 || strcmp(n2, "u32") == 0 || strcmp(n2, "u64") == 0)) ||
+                (strcmp(n2, "usize") == 0 && (strcmp(n1, "int") == 0 || strcmp(n1, "u32") == 0 || strcmp(n1, "u64") == 0))) return 1;
+            if ((strcmp(n1, "float") == 0 && strcmp(n2, "f64") == 0) ||
+                (strcmp(n1, "f64") == 0 && strcmp(n2, "float") == 0)) return 1;
+            
+            return 0;
+        }
         
         case CURIUM_AST_V2_TYPE_PTR:
         case CURIUM_AST_V2_TYPE_OPTION:
@@ -186,22 +234,38 @@ static int curium_types_equal(curium_ast_v2_node_t* a, curium_ast_v2_node_t* b) 
 }
 
 /* Get type name for error messages */
+static char type_name_buffers[8][512];
+static int type_name_buf_idx = 0;
+
 static const char* curium_type_name(curium_ast_v2_node_t* type) {
     if (!type) return "<unknown>";
     
+    char* buf = type_name_buffers[type_name_buf_idx];
+    type_name_buf_idx = (type_name_buf_idx + 1) % 8;
+
     switch (type->kind) {
         case CURIUM_AST_V2_TYPE_NAMED:
             return type->as.type_named.name->data;
+        case CURIUM_AST_V2_TYPE_DYN:
+            return "dyn";
+        case CURIUM_AST_V2_TYPE_STRNUM:
+            return "strnum";
         case CURIUM_AST_V2_TYPE_PTR:
             return "pointer";
         case CURIUM_AST_V2_TYPE_OPTION:
-            return "option";
+            snprintf(buf, 512, "Option<%s>", curium_type_name(type->as.type_option.base));
+            return buf;
         case CURIUM_AST_V2_TYPE_RESULT:
-            return "result";
+            snprintf(buf, 512, "Result<%s, %s>", 
+                curium_type_name(type->as.type_result.ok_type),
+                curium_type_name(type->as.type_result.err_type));
+            return buf;
         case CURIUM_AST_V2_TYPE_ARRAY:
-            return "array";
+            snprintf(buf, 512, "array<%s>", curium_type_name(type->as.type_array.element_type));
+            return buf;
         case CURIUM_AST_V2_TYPE_SLICE:
-            return "slice";
+            snprintf(buf, 512, "slice<%s>", curium_type_name(type->as.type_array.element_type));
+            return buf;
         case CURIUM_AST_V2_TYPE_MAP:
             return "map";
         case CURIUM_AST_V2_TYPE_FN:
@@ -251,6 +315,15 @@ static curium_ast_v2_node_t* curium_infer_type(curium_typecheck_ctx_t* ctx, curi
         }
         
         case CURIUM_AST_V2_BINARY_OP: {
+            const char* op = expr->as.binary_expr.op->data;
+            if (strcmp(op, "==") == 0 || strcmp(op, "!=") == 0 ||
+                strcmp(op, "<") == 0 || strcmp(op, ">") == 0 ||
+                strcmp(op, "<=") == 0 || strcmp(op, ">=") == 0 ||
+                strcmp(op, "&&") == 0 || strcmp(op, "||") == 0) {
+                curium_ast_v2_node_t* t = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, expr->line, expr->column);
+                t->as.type_named.name = curium_string_new("bool");
+                return t;
+            }
             /* Infer from operands */
             curium_ast_v2_node_t* left_type = curium_infer_type(ctx, expr->as.binary_expr.left);
             if (left_type) return left_type;
@@ -267,6 +340,14 @@ static curium_ast_v2_node_t* curium_infer_type(curium_typecheck_ctx_t* ctx, curi
                     return info->type_node->as.type_fn.return_type;
                 }
             }
+            return NULL;
+        }
+
+        case CURIUM_AST_V2_DYN_CALL: {
+            /* Dynamic operator call: look up the operator's inferred type */
+            curium_type_info_t* info = curium_scope_lookup(ctx->current_scope,
+                expr->as.dyn_call.op_name->data);
+            if (info) return info->type_node;
             return NULL;
         }
         
@@ -303,6 +384,7 @@ static int curium_typecheck_expr(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
     switch (expr->kind) {
         case CURIUM_AST_V2_NUMBER:
         case CURIUM_AST_V2_STRING_LITERAL:
+        case CURIUM_AST_V2_INTERPOLATED_STRING:
         case CURIUM_AST_V2_BOOL:
             if (out_type) *out_type = curium_type_info_new(curium_infer_type(ctx, expr), 0);
             return 1;
@@ -310,6 +392,12 @@ static int curium_typecheck_expr(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
         case CURIUM_AST_V2_IDENTIFIER: {
             const char* name = expr->as.identifier.value->data;
             curium_type_info_t* info = curium_scope_lookup(ctx->current_scope, name);
+            if (!info) {
+                /* Try type name lookup (for struct literals) */
+                char type_key[256];
+                snprintf(type_key, sizeof(type_key), "type:%s", name);
+                info = curium_scope_lookup(ctx->current_scope, type_key);
+            }
             if (!info) {
                 curium_typecheck_report_error(ctx, expr->line, expr->column, "Check variable spelling", "Undefined variable: %s", name);
                 return 0;
@@ -325,16 +413,41 @@ static int curium_typecheck_expr(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
                      curium_typecheck_expr(ctx, expr->as.binary_expr.right, &right);
             
             if (ok && left && right && !curium_types_equal(left->type_node, right->type_node)) {
-                /* Allow some implicit conversions? For now, strict */
-                if (strcmp(expr->as.binary_expr.op->data, "==") != 0 &&
-                    strcmp(expr->as.binary_expr.op->data, "!=") != 0) {
-                    curium_typecheck_report_error(ctx, expr->line, expr->column, "Check operand types", "Type mismatch in binary expression: %s vs %s",
-                        curium_type_name(left->type_node), curium_type_name(right->type_node));
-                    ok = 0;
+                /* Special case: 0 literal allowed for pointer comparisons */
+                int zero_cmp = 0;
+                if ((left->type_node->kind == CURIUM_AST_V2_TYPE_PTR && 
+                     expr->as.binary_expr.right->kind == CURIUM_AST_V2_NUMBER && 
+                     strcmp(expr->as.binary_expr.right->as.number_literal.value->data, "0") == 0) ||
+                    (right->type_node->kind == CURIUM_AST_V2_TYPE_PTR && 
+                     expr->as.binary_expr.left->kind == CURIUM_AST_V2_NUMBER && 
+                     strcmp(expr->as.binary_expr.left->as.number_literal.value->data, "0") == 0)) {
+                    zero_cmp = 1;
+                }
+
+                if (!zero_cmp) {
+                    const char* op = expr->as.binary_expr.op->data;
+                    if (strcmp(op, "==") != 0 && strcmp(op, "!=") != 0 &&
+                        strcmp(op, "&&") != 0 && strcmp(op, "||") != 0) {
+                        curium_typecheck_report_error(ctx, expr->line, expr->column, "Check operand types", "Type mismatch in binary expression: %s vs %s",
+                            curium_type_name(left->type_node), curium_type_name(right->type_node));
+                        ok = 0;
+                    }
                 }
             }
             
-            if (out_type) *out_type = left ? curium_type_info_copy(left) : NULL;
+            if (out_type) {
+                const char* op = expr->as.binary_expr.op->data;
+                if (strcmp(op, "==") == 0 || strcmp(op, "!=") == 0 ||
+                    strcmp(op, "<") == 0 || strcmp(op, ">") == 0 ||
+                    strcmp(op, "<=") == 0 || strcmp(op, ">=") == 0 ||
+                    strcmp(op, "&&") == 0 || strcmp(op, "||") == 0) {
+                    curium_ast_v2_node_t* t = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, expr->line, expr->column);
+                    t->as.type_named.name = curium_string_new("bool");
+                    *out_type = curium_type_info_new(t, 0);
+                } else {
+                    *out_type = left ? curium_type_info_copy(left) : NULL;
+                }
+            }
             if (right) curium_type_info_free(right);
             return ok;
         }
@@ -391,13 +504,50 @@ static int curium_typecheck_expr(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
                 }
             }
 
+            /* FIX #001: Validate parameters against arguments */
+            curium_ast_v2_node_t* expected_param = NULL;
+            if (ok && callee_type && callee_type->type_node && callee_type->type_node->kind == CURIUM_AST_V2_TYPE_FN) {
+                expected_param = callee_type->type_node->as.type_fn.params;
+                
+                /* Method call: skip 'self' if calling via field access */
+                if (expr->as.call_expr.callee->kind == CURIUM_AST_V2_FIELD_ACCESS) {
+                    if (expected_param && expected_param->kind == CURIUM_AST_V2_PARAM &&
+                        expected_param->as.param.name && strcmp(expected_param->as.param.name->data, "self") == 0) {
+                        expected_param = expected_param->next;
+                    }
+                }
+            }
+
             /* Check arguments */
             curium_ast_v2_node_t* arg = expr->as.call_expr.args;
             while (arg && ok) {
                 curium_type_info_t* arg_type = NULL;
                 ok = curium_typecheck_expr(ctx, arg, &arg_type);
+                
+                if (ok && expected_param && arg_type) {
+                    /* Structurally check param type vs arg type */
+                    if (!curium_types_equal(arg_type->type_node, expected_param->as.param.type)) {
+                        curium_typecheck_report_error(ctx, arg->line, arg->column, "Parameter type mismatch", 
+                            "Expected %s but found %s", 
+                            curium_type_name(expected_param->as.param.type),
+                            curium_type_name(arg_type->type_node));
+                        ok = 0;
+                    }
+                    expected_param = expected_param->next;
+                } else if (ok && !expected_param) {
+                    /* Too many arguments */
+                    curium_typecheck_report_error(ctx, arg->line, arg->column, "Too many arguments", "Function expects fewer arguments");
+                    ok = 0;
+                }
+
                 if (arg_type) curium_type_info_free(arg_type);
                 arg = arg->next;
+            }
+
+            if (ok && expected_param) {
+                /* Too few arguments */
+                curium_typecheck_report_error(ctx, expr->line, expr->column, "Too few arguments", "Function expects more arguments");
+                ok = 0;
             }
             
             /* Get return type */
@@ -416,11 +566,100 @@ static int curium_typecheck_expr(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
         }
         
         case CURIUM_AST_V2_FIELD_ACCESS: {
-            curium_type_info_t* obj_type = NULL;
-            int ok = curium_typecheck_expr(ctx, expr->as.field_access.object, &obj_type);
-            /* For now, we can't check field access without struct definitions */
-            if (out_type) *out_type = obj_type;
-            else if (obj_type) curium_type_info_free(obj_type);
+            curium_type_info_t* obj_info = NULL;
+            int ok = curium_typecheck_expr(ctx, expr->as.field_access.object, &obj_info);
+            
+            if (ok && obj_info && obj_info->type_node) {
+                curium_ast_v2_node_t* base_type = obj_info->type_node;
+                
+                /* Auto-dereference for pointers to structs */
+                if (base_type->kind == CURIUM_AST_V2_TYPE_PTR) {
+                    base_type = base_type->as.type_ptr.base;
+                }
+
+                const char* target_field = expr->as.field_access.field->data;
+                int found = 0;
+
+                /* Step 0: Built-in methods for all types (like to_str) */
+                if (strcmp(target_field, "to_str") == 0) {
+                    curium_ast_v2_node_t* fn_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, expr->line, expr->column);
+                    fn_type->as.type_fn.params = NULL; /* Methods called via . skip self */
+                    curium_ast_v2_node_t* ret_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, expr->line, expr->column);
+                    ret_type->as.type_named.name = curium_string_new("string");
+                    fn_type->as.type_fn.return_type = ret_type;
+
+                    if (out_type) *out_type = curium_type_info_new(fn_type, 0);
+                    found = 1;
+                }
+
+                if (!found && base_type && base_type->kind == CURIUM_AST_V2_TYPE_NAMED) {
+                    const char* type_name = base_type->as.type_named.name->data;
+                    char type_key[256];
+                    snprintf(type_key, sizeof(type_key), "type:%s", type_name);
+                    
+                    curium_type_info_t* struct_def_info = curium_scope_lookup(ctx->current_scope, type_key);
+                    if (struct_def_info && struct_def_info->type_node && 
+                        (struct_def_info->type_node->kind == CURIUM_AST_V2_STRUCT || 
+                         struct_def_info->type_node->kind == CURIUM_AST_V2_UNION)) {
+                        
+                        /* Search for the field in the struct definition */
+                        curium_ast_v2_node_t* field = struct_def_info->type_node->as.struct_decl.fields;
+                        while (field) {
+                            if (field->kind == CURIUM_AST_V2_PARAM && 
+                                field->as.param.name && strcmp(field->as.param.name->data, target_field) == 0) {
+                                if (out_type) {
+                                    *out_type = curium_type_info_new(field->as.param.type, obj_info->is_mutable);
+                                }
+                                found = 1;
+                                break;
+                            }
+                            field = field->next;
+                        }
+                    }
+
+                    if (!found) {
+                        /* Search for methods in impl blocks */
+                        char method_key[512];
+                        snprintf(method_key, sizeof(method_key), "method:%s:%s", type_name, target_field);
+                        curium_type_info_t* method_info = curium_scope_lookup(ctx->current_scope, method_key);
+                        
+                        if (method_info) {
+                            if (out_type) {
+                                *out_type = curium_type_info_new(method_info->type_node, 0);
+                            }
+                            found = 1;
+                        }
+                    }
+                } else if (!found && (base_type->kind == CURIUM_AST_V2_TYPE_RESULT || 
+                                     base_type->kind == CURIUM_AST_V2_TYPE_OPTION)) {
+                    /* Static members in core types (Result::Ok, Option::Some, etc.) */
+                    if (strcmp(target_field, "Ok") == 0 || strcmp(target_field, "Err") == 0 ||
+                        strcmp(target_field, "Some") == 0) {
+                        
+                        curium_ast_v2_node_t* fn_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, expr->line, expr->column);
+                        curium_ast_v2_node_t* p_any = curium_ast_v2_new(CURIUM_AST_V2_PARAM, expr->line, expr->column);
+                        p_any->as.param.name = curium_string_new("val");
+                        p_any->as.param.type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, expr->line, expr->column);
+                        p_any->as.param.type->as.type_named.name = curium_string_new("any");
+                        
+                        fn_type->as.type_fn.params = p_any;
+                        fn_type->as.type_fn.return_type = base_type;
+                        
+                        if (out_type) *out_type = curium_type_info_new(fn_type, 0);
+                        found = 1;
+                    } else if (strcmp(target_field, "None") == 0) {
+                        if (out_type) *out_type = curium_type_info_new(base_type, 0);
+                        found = 1;
+                    }
+                }
+                
+                if (!found && ok) {
+                    curium_typecheck_report_error(ctx, expr->line, expr->column, "Member not found", "Type '%s' has no member named '%s'", curium_type_name(base_type), target_field);
+                    ok = 0;
+                }
+            }
+
+            if (obj_info) curium_type_info_free(obj_info);
             return ok;
         }
         
@@ -493,6 +732,25 @@ static int curium_typecheck_expr(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
             if (ptr_type) curium_type_info_free(ptr_type);
             return ok;
         }
+
+        case CURIUM_AST_V2_DYN_CALL: {
+            curium_type_info_t* left = NULL;
+            curium_type_info_t* right = NULL;
+            int ok = curium_typecheck_expr(ctx, expr->as.dyn_call.left, &left) &&
+                     curium_typecheck_expr(ctx, expr->as.dyn_call.right, &right);
+            
+            curium_type_info_t* op_info = curium_scope_lookup(ctx->current_scope,
+                expr->as.dyn_call.op_name->data);
+            if (!op_info) {
+                curium_typecheck_report_error(ctx, expr->line, expr->column, "Define the dynamic operator first", "Undefined dynamic operator: %s", expr->as.dyn_call.op_name->data);
+                ok = 0;
+            }
+
+            if (out_type) *out_type = op_info ? curium_type_info_copy(op_info) : NULL;
+            if (left) curium_type_info_free(left);
+            if (right) curium_type_info_free(right);
+            return ok;
+        }
         
         case CURIUM_AST_V2_OPTION_SOME:
         case CURIUM_AST_V2_RESULT_OK:
@@ -507,16 +765,22 @@ static int curium_typecheck_expr(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
                 curium_ast_v2_node_t* wrapper = curium_ast_v2_new(
                     expr->kind == CURIUM_AST_V2_OPTION_SOME ? CURIUM_AST_V2_TYPE_OPTION : CURIUM_AST_V2_TYPE_RESULT,
                     expr->line, expr->column);
+                
+                curium_ast_v2_node_t* any_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, expr->line, expr->column);
+                any_type->as.type_named.name = curium_string_new("any");
+
                 if (expr->kind == CURIUM_AST_V2_OPTION_SOME) {
-                    wrapper->as.type_option.base = inner ? inner->type_node : NULL;
+                    wrapper->as.type_option.base = inner ? inner->type_node : any_type;
+                } else if (expr->kind == CURIUM_AST_V2_RESULT_OK) {
+                    wrapper->as.type_result.ok_type = inner ? inner->type_node : any_type;
+                    wrapper->as.type_result.err_type = any_type;
                 } else {
-                    wrapper->as.type_result.ok_type = inner ? inner->type_node : NULL;
-                    wrapper->as.type_result.err_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, 
-                        expr->line, expr->column);
-                    wrapper->as.type_result.err_type->as.type_named.name = curium_string_new("Error");
+                    /* Err variant */
+                    wrapper->as.type_result.ok_type = any_type;
+                    wrapper->as.type_result.err_type = inner ? inner->type_node : any_type;
                 }
                 *out_type = curium_type_info_new(wrapper, 0);
-                (*out_type)->is_error_type = 1;
+                (*out_type)->is_error_type = (expr->kind != CURIUM_AST_V2_OPTION_SOME);
             }
             
             if (inner) curium_type_info_free(inner);
@@ -527,15 +791,49 @@ static int curium_typecheck_expr(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
             if (out_type) {
                 curium_ast_v2_node_t* opt = curium_ast_v2_new(CURIUM_AST_V2_TYPE_OPTION, 
                     expr->line, expr->column);
-                opt->as.type_option.base = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED,
-                    expr->line, expr->column);
-                opt->as.type_option.base->as.type_named.name = curium_string_new("void");
+                curium_ast_v2_node_t* any_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, expr->line, expr->column);
+                any_type->as.type_named.name = curium_string_new("any");
+                opt->as.type_option.base = any_type;
                 *out_type = curium_type_info_new(opt, 0);
-                (*out_type)->is_error_type = 1;
+                (*out_type)->is_error_type = 1; /* None often needs handling */
             }
             return 1;
         }
         
+        case CURIUM_AST_V2_STRUCT_LITERAL: {
+            /* 1. Resolve type */
+            curium_type_info_t* struct_type = NULL;
+            int ok = curium_typecheck_expr(ctx, expr->as.struct_literal.type, &struct_type);
+            
+            if (ok && struct_type && struct_type->type_node) {
+                if (struct_type->type_node->kind == CURIUM_AST_V2_STRUCT || 
+                    struct_type->type_node->kind == CURIUM_AST_V2_UNION) {
+                    if (out_type) *out_type = curium_type_info_new(struct_type->type_node, 0);
+                } else if (struct_type->type_node->kind == CURIUM_AST_V2_IDENTIFIER) {
+                    /* Transform identifier into actual struct type info */
+                    char type_key[256];
+                    snprintf(type_key, sizeof(type_key), "type:%s", struct_type->type_node->as.identifier.value->data);
+                    curium_type_info_t* actual_def = curium_scope_lookup(ctx->current_scope, type_key);
+                    if (actual_def) {
+                        if (out_type) *out_type = curium_type_info_new(actual_def->type_node, 0);
+                    }
+                }
+            }
+            
+            /* 2. Check field assignments */
+            curium_ast_v2_node_t* field_init = expr->as.struct_literal.fields;
+            while (field_init) {
+                if (field_init->kind == CURIUM_AST_V2_ASSIGN) {
+                    curium_type_info_t* val_type = NULL;
+                    /* Only check the right side of the colon */
+                    curium_typecheck_expr(ctx, field_init->as.binary_expr.right, &val_type);
+                    if (val_type) curium_type_info_free(val_type);
+                }
+                field_init = field_init->next;
+            }
+            return ok;
+        }
+
         case CURIUM_AST_V2_TRY_EXPR: {
             curium_type_info_t* inner = NULL;
             int ok = curium_typecheck_expr(ctx, expr->as.try_expr.expr, &inner);
@@ -551,7 +849,16 @@ static int curium_typecheck_expr(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
             if (inner) curium_type_info_free(inner);
             return ok;
         }
-        
+        case CURIUM_AST_V2_TYPE_RESULT:
+        case CURIUM_AST_V2_TYPE_OPTION:
+        case CURIUM_AST_V2_TYPE_PTR:
+        case CURIUM_AST_V2_TYPE_ARRAY:
+        case CURIUM_AST_V2_TYPE_SLICE:
+        case CURIUM_AST_V2_TYPE_MAP:
+        case CURIUM_AST_V2_TYPE_FN:
+            if (out_type) *out_type = curium_type_info_new(expr, 0);
+            return 1;
+            
         default:
             if (out_type) *out_type = NULL;
             return 1;
@@ -586,6 +893,9 @@ static int curium_typecheck_type(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
             }
             return curium_typecheck_type(ctx, type->as.type_fn.return_type);
         }
+        case CURIUM_AST_V2_TYPE_DYN:
+        case CURIUM_AST_V2_TYPE_STRNUM:
+            return 1;
         default:
             return 1;
     }
@@ -597,12 +907,14 @@ static int curium_typecheck_stmt(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
     
     switch (stmt->kind) {
         case CURIUM_AST_V2_FN: {
-            /* Add function to scope */
-            curium_ast_v2_node_t* fn_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, stmt->line, stmt->column);
-            fn_type->as.type_fn.params = stmt->as.fn_decl.params;
-            /* Define function in current scope BEFORE checking body to allow recursion */
-            curium_type_info_t* fn_info = curium_type_info_new(stmt->as.fn_decl.return_type, 0);
-            curium_scope_define(ctx, ctx->current_scope, stmt->as.fn_decl.name->data, fn_info);
+            /* Define function in current scope ONLY if not already there (Pass 1) */
+            if (!curium_map_get(ctx->current_scope->bindings, stmt->as.fn_decl.name->data)) {
+                curium_ast_v2_node_t* fn_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, stmt->line, stmt->column);
+                fn_type->as.type_fn.params = stmt->as.fn_decl.params;
+                fn_type->as.type_fn.return_type = stmt->as.fn_decl.return_type;
+                curium_type_info_t* fn_info = curium_type_info_new(fn_type, 0);
+                curium_scope_define(ctx, ctx->current_scope, stmt->as.fn_decl.name->data, fn_info);
+            }
             
             /* Check return type */
             curium_typecheck_type(ctx, stmt->as.fn_decl.return_type);
@@ -659,9 +971,16 @@ static int curium_typecheck_stmt(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
                 final_type = init_type->type_node;
             } else if (declared_type && init_type && init_type->type_node) {
                 /* Check type compatibility */
-                if (!curium_types_equal(declared_type, init_type->type_node)) {
+                int compatible = curium_types_equal(declared_type, init_type->type_node);
+                
+                /* Special case: 0 literal allowed for pointers */
+                if (!compatible && declared_type->kind == CURIUM_AST_V2_TYPE_PTR && 
+                    init->kind == CURIUM_AST_V2_NUMBER && strcmp(init->as.number_literal.value->data, "0") == 0) {
+                    compatible = 1;
+                }
+
+                if (!compatible) {
                     curium_typecheck_report_error(ctx, stmt->line, stmt->column, "Fix initialization type", "Type mismatch in initialization: expected %s, got %s",
-                        is_mutable ? "mut" : "let",
                         curium_type_name(declared_type),
                         curium_type_name(init_type->type_node));
                     ok = 0;
@@ -692,12 +1011,22 @@ static int curium_typecheck_stmt(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
             }
             
             /* Check type compatibility */
-            if (ok && target_type && value_type && value_type->type_node &&
-                !curium_types_equal(target_type->type_node, value_type->type_node)) {
-                curium_typecheck_report_error(ctx, stmt->as.assign_stmt.value->line, stmt->as.assign_stmt.value->column, "Type mismatch", "Type mismatch in assignment: expected %s, got %s",
-                    curium_type_name(target_type->type_node),
-                    curium_type_name(value_type->type_node));
-                ok = 0;
+            if (ok && target_type && value_type && value_type->type_node) {
+                 int compatible = curium_types_equal(target_type->type_node, value_type->type_node);
+
+                 /* Special case: 0 literal allowed for pointers */
+                 curium_ast_v2_node_t* val_node = stmt->as.assign_stmt.value;
+                 if (!compatible && target_type->type_node->kind == CURIUM_AST_V2_TYPE_PTR && 
+                     val_node->kind == CURIUM_AST_V2_NUMBER && strcmp(val_node->as.number_literal.value->data, "0") == 0) {
+                     compatible = 1;
+                 }
+
+                 if (!compatible) {
+                    curium_typecheck_report_error(ctx, stmt->as.assign_stmt.value->line, stmt->as.assign_stmt.value->column, "Type mismatch", "Type mismatch in assignment: expected %s, got %s",
+                        curium_type_name(target_type->type_node),
+                        curium_type_name(value_type->type_node));
+                    ok = 0;
+                 }
             }
             
             /* Check mandatory error handling */
@@ -834,21 +1163,84 @@ static int curium_typecheck_stmt(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
             
             return ok;
         }
+
+        case CURIUM_AST_V2_DYN_OP: {
+            /* 1. Infer common return type from all arms */
+            curium_ast_v2_node_t* common_type = NULL;
+            curium_ast_v2_node_t* arm = stmt->as.dyn_op.arms;
+            while (arm) {
+                curium_ast_v2_node_t* arm_expr = arm->as.match_arm.expr;
+                curium_ast_v2_node_t* arm_type = curium_infer_type(ctx, arm_expr);
+                
+                if (arm_type) {
+                    if (!common_type) {
+                        common_type = arm_type;
+                    } else if (!curium_types_equal(common_type, arm_type)) {
+                        curium_typecheck_report_error(ctx, arm->line, arm->column, "Arms must have consistent return types", 
+                            "Inconsistent return types in dyn operator arms: %s vs %s",
+                            curium_type_name(common_type), curium_type_name(arm_type));
+                        return 0;
+                    }
+                }
+                arm = arm->next;
+            }
+
+            /* Also check fallbacks */
+            curium_ast_v2_node_t* fallback = stmt->as.dyn_op.fallbacks;
+            while (fallback) {
+                curium_ast_v2_node_t* fb_expr = fallback->as.dyn_fallback.body;
+                curium_ast_v2_node_t* fb_type = curium_infer_type(ctx, fb_expr);
+                if (fb_type && common_type && !curium_types_equal(common_type, fb_type)) {
+                    curium_typecheck_report_error(ctx, fallback->line, fallback->column, "Fallback must match arm types",
+                        "Inconsistent return type in dyn operator fallback: %s vs %s",
+                        curium_type_name(common_type), curium_type_name(fb_type));
+                    return 0;
+                }
+                fallback = fallback->next;
+            }
+
+            /* 2. Update/Register operator in scope */
+            if (common_type) {
+                /* If it was pre-registered in Pass 1, we update its type info with the refined return type */
+                curium_type_info_t* existing = curium_scope_lookup(ctx->current_scope, stmt->as.dyn_op.name->data);
+                if (existing) {
+                    existing->type_node = common_type;
+                } else {
+                    curium_scope_define(ctx, ctx->current_scope, stmt->as.dyn_op.name->data, 
+                        curium_type_info_new(common_type, 0));
+                }
+            }
+            return 1;
+        }
         
         case CURIUM_AST_V2_STRUCT:
-        case CURIUM_AST_V2_UNION:
+        case CURIUM_AST_V2_UNION: {
             /* Check field types */
-            return curium_typecheck_type(ctx, stmt->as.struct_decl.fields);
+            int ok = curium_typecheck_type(ctx, stmt->as.struct_decl.fields);
+            
+            /* Register struct definition in scope for member lookups if not already there (Pass 1) */
+            if (ok && stmt->as.struct_decl.name) {
+                char type_key[256];
+                snprintf(type_key, sizeof(type_key), "type:%s", stmt->as.struct_decl.name->data);
+                if (!curium_map_get(ctx->current_scope->bindings, type_key)) {
+                    curium_type_info_t* struct_info = curium_type_info_new(stmt, 0);
+                    curium_scope_define(ctx, ctx->current_scope, type_key, struct_info);
+                }
+            }
+            return ok;
+        }
         
         case CURIUM_AST_V2_ENUM: {
-            /* Register enum variants in scope as opaque named types */
+            /* Register enum variants in scope (Idempotent for Pass 2) */
             curium_ast_v2_node_t* variant = stmt->as.enum_decl.fields;
             while (variant) {
                 if (variant->kind == CURIUM_AST_V2_ENUM_VARIANT && variant->as.enum_variant.name) {
-                    curium_ast_v2_node_t* vtype = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, variant->line, variant->column);
-                    vtype->as.type_named.name = curium_string_new(stmt->as.enum_decl.name->data);
-                    curium_type_info_t* vi = curium_type_info_new(vtype, 0);
-                    curium_scope_define(ctx, ctx->current_scope, variant->as.enum_variant.name->data, vi);
+                    if (!curium_map_get(ctx->current_scope->bindings, variant->as.enum_variant.name->data)) {
+                        curium_ast_v2_node_t* vtype = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, variant->line, variant->column);
+                        vtype->as.type_named.name = curium_string_new(stmt->as.enum_decl.name->data);
+                        curium_type_info_t* vi = curium_type_info_new(vtype, 0);
+                        curium_scope_define(ctx, ctx->current_scope, variant->as.enum_variant.name->data, vi);
+                    }
                 }
                 variant = variant->next;
             }
@@ -858,6 +1250,26 @@ static int curium_typecheck_stmt(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
         case CURIUM_AST_V2_BREAK:
         case CURIUM_AST_V2_CONTINUE:
             return 1;
+        
+        case CURIUM_AST_V2_IMPL: {
+            const char* type_name = stmt->as.impl_decl.target_type->as.type_named.name->data;
+            curium_ast_v2_node_t* method = stmt->as.impl_decl.methods;
+            while (method) {
+                if (method->kind == CURIUM_AST_V2_FN) {
+                    char method_key[512];
+                    snprintf(method_key, sizeof(method_key), "method:%s:%s", type_name, method->as.fn_decl.name->data);
+                    
+                    curium_ast_v2_node_t* fn_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, method->line, method->column);
+                    fn_type->as.type_fn.params = method->as.fn_decl.params;
+                    fn_type->as.type_fn.return_type = method->as.fn_decl.return_type;
+                    
+                    curium_type_info_t* mi = curium_type_info_new(fn_type, 0);
+                    curium_scope_define(ctx, ctx->current_scope, method_key, mi);
+                }
+                method = method->next;
+            }
+            return 1;
+        }
         
         default:
             return 1;
@@ -876,43 +1288,101 @@ curium_typecheck_ctx_t* curium_typecheck_new(const char* source_text, const char
     ctx->file_path = file_path ? file_path : "unknown";
     
     /* Inject standard compiler built-ins into the root scope */
-    curium_ast_v2_node_t* print_fn = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, 0, 0);
-    print_fn->as.type_fn.return_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, 0, 0);
-    print_fn->as.type_fn.return_type->as.type_named.name = curium_string_new("void");
-    curium_scope_define(ctx, ctx->current_scope, "print", curium_type_info_new(print_fn, 0));
-    
-    curium_ast_v2_node_t* println_fn = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, 0, 0);
-    println_fn->as.type_fn.return_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, 0, 0);
-    println_fn->as.type_fn.return_type->as.type_named.name = curium_string_new("void");
-    curium_scope_define(ctx, ctx->current_scope, "println", curium_type_info_new(println_fn, 0));
+    curium_ast_v2_node_t* any_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, 0, 0);
+    any_type->as.type_named.name = curium_string_new("any");
 
-    /* FIX #005/#006: Register all built-in / stdlib functions so that type-checking
-     * does not produce "Undefined variable" errors for standard library calls.    */
-
-    /* Helper macro-style: build a minimal TYPE_FN node and register it. */
-    #define CURIUM_REGISTER_BUILTIN(nm, ret_str)                                       \
+    /* Helper macro to build a function with 1 'any' parameter */
+    #define CURIUM_REGISTER_BUILTIN_1(nm, ret_str)                                     \
     do {                                                                               \
         curium_ast_v2_node_t* _fn = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, 0, 0);  \
         _fn->as.type_fn.return_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, 0, 0); \
         _fn->as.type_fn.return_type->as.type_named.name = curium_string_new(ret_str); \
-        curium_scope_define(ctx, ctx->current_scope, (nm), curium_type_info_new(_fn, 0)); \
+        curium_ast_v2_node_t* _p = curium_ast_v2_new(CURIUM_AST_V2_PARAM, 0, 0);     \
+        _p->as.param.name = curium_string_new("val");                                  \
+        _p->as.param.type = any_type;                                                  \
+        _fn->as.type_fn.params = _p;                                                   \
+        curium_type_info_t* _info = curium_type_info_new(_fn, 0);                      \
+        _info->is_builtin = 1;                                                         \
+        curium_scope_define(ctx, ctx->current_scope, (nm), _info);                     \
     } while(0)
 
-    CURIUM_REGISTER_BUILTIN("input",    "string");  /* input() -> string         */
-    CURIUM_REGISTER_BUILTIN("len",      "int");     /* len(collection) -> int    */
-    CURIUM_REGISTER_BUILTIN("malloc",   "void");    /* malloc(n) -> ^void        */
-    CURIUM_REGISTER_BUILTIN("free",     "void");    /* free(ptr) -> void         */
-    CURIUM_REGISTER_BUILTIN("gc_alloc", "void");    /* gc.alloc(n) -> ^void      */
-    CURIUM_REGISTER_BUILTIN("gc_free",  "void");    /* gc.free(ptr) -> void      */
-    CURIUM_REGISTER_BUILTIN("strnum",   "strnum");  /* strnum(v) -> strnum       */
-    CURIUM_REGISTER_BUILTIN("assert",   "void");    /* assert(cond) -> void      */
-    CURIUM_REGISTER_BUILTIN("exit",     "void");    /* exit(code) -> void        */
-    CURIUM_REGISTER_BUILTIN("sizeof",   "int");     /* sizeof(T) -> int          */
+    CURIUM_REGISTER_BUILTIN_1("println",    "any");     /* Uses fixed any from turn 10 */
+    CURIUM_REGISTER_BUILTIN_1("print",      "any");
+    CURIUM_REGISTER_BUILTIN_1("http_get",   "string");
+    CURIUM_REGISTER_BUILTIN_1("to_str",     "string");
+    CURIUM_REGISTER_BUILTIN_1("input",      "string");  
+    CURIUM_REGISTER_BUILTIN_1("len",        "int");     
+    CURIUM_REGISTER_BUILTIN_1("malloc",     "void");    
+    CURIUM_REGISTER_BUILTIN_1("free",       "void");    
+    CURIUM_REGISTER_BUILTIN_1("gc_alloc",   "void");    
+    CURIUM_REGISTER_BUILTIN_1("gc_free",    "void");    
+    CURIUM_REGISTER_BUILTIN_1("strnum",     "strnum");  
+    CURIUM_REGISTER_BUILTIN_1("assert",     "void");    
+    CURIUM_REGISTER_BUILTIN_1("exit",       "void");    
+    CURIUM_REGISTER_BUILTIN_1("sizeof",     "int");     
 
-    #undef CURIUM_REGISTER_BUILTIN
+    #undef CURIUM_REGISTER_BUILTIN_1
 
     return ctx;
 
+}
+
+/* Pass 1: Register top-level symbols for forward references */
+static int curium_typecheck_register_symbols(curium_typecheck_ctx_t* ctx, curium_ast_v2_node_t* stmt) {
+    if (!stmt) return 1;
+    
+    switch (stmt->kind) {
+        case CURIUM_AST_V2_FN: {
+            /* Create function type signature */
+            curium_ast_v2_node_t* fn_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_FN, stmt->line, stmt->column);
+            fn_type->as.type_fn.params = stmt->as.fn_decl.params;
+            fn_type->as.type_fn.return_type = stmt->as.fn_decl.return_type;
+            
+            curium_type_info_t* fn_info = curium_type_info_new(fn_type, 0);
+            curium_scope_define(ctx, ctx->current_scope, stmt->as.fn_decl.name->data, fn_info);
+            return 1;
+        }
+        
+        case CURIUM_AST_V2_STRUCT:
+        case CURIUM_AST_V2_UNION: {
+            if (stmt->as.struct_decl.name) {
+                char type_key[256];
+                snprintf(type_key, sizeof(type_key), "type:%s", stmt->as.struct_decl.name->data);
+                curium_type_info_t* struct_info = curium_type_info_new(stmt, 0);
+                curium_scope_define(ctx, ctx->current_scope, type_key, struct_info);
+            }
+            return 1;
+        }
+        
+        case CURIUM_AST_V2_ENUM: {
+            /* Register enum variants */
+            curium_ast_v2_node_t* variant = stmt->as.enum_decl.fields;
+            while (variant) {
+                if (variant->kind == CURIUM_AST_V2_ENUM_VARIANT && variant->as.enum_variant.name) {
+                    curium_ast_v2_node_t* vtype = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, variant->line, variant->column);
+                    vtype->as.type_named.name = curium_string_new(stmt->as.enum_decl.name->data);
+                    curium_type_info_t* vi = curium_type_info_new(vtype, 0);
+                    curium_scope_define(ctx, ctx->current_scope, variant->as.enum_variant.name->data, vi);
+                }
+                variant = variant->next;
+            }
+            return 1;
+        }
+        
+        case CURIUM_AST_V2_DYN_OP: {
+            /* We can't easily infer common return type here without checking bodies,
+             * but we can register the name with 'any' for Pass 1.
+             * Pass 2 will refine it. */
+            curium_ast_v2_node_t* any_type = curium_ast_v2_new(CURIUM_AST_V2_TYPE_NAMED, stmt->line, stmt->column);
+            any_type->as.type_named.name = curium_string_new("any");
+            curium_scope_define(ctx, ctx->current_scope, stmt->as.dyn_op.name->data, 
+                curium_type_info_new(any_type, 0));
+            return 1;
+        }
+        
+        default:
+            return 1;
+    }
 }
 
 void curium_typecheck_free(curium_typecheck_ctx_t* ctx) {
@@ -930,7 +1400,15 @@ void curium_typecheck_free(curium_typecheck_ctx_t* ctx) {
 int curium_typecheck_module(curium_typecheck_ctx_t* ctx, curium_ast_v2_list_t* ast) {
     if (!ctx || !ast) return 0;
     
+    /* Pass 1: Register all top-level symbols */
     curium_ast_v2_node_t* stmt = ast->head;
+    while (stmt) {
+        curium_typecheck_register_symbols(ctx, stmt);
+        stmt = stmt->next;
+    }
+
+    /* Pass 2: Typecheck bodies */
+    stmt = ast->head;
     while (stmt) {
         curium_typecheck_stmt(ctx, stmt);
         stmt = stmt->next;

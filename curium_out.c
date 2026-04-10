@@ -22,7 +22,9 @@
 /* FIX #014: exception globals are _Thread_local so that spawn {} threads
  * have independent exception stacks — a throw on one thread no longer
  * corrupts another thread's setjmp/longjmp state.                      */
-#if defined(_MSC_VER)
+#if defined(__TINYC__)
+#  define CURIUM_TLS  /* TCC: no TLS support */
+#elif defined(_MSC_VER)
 #  define CURIUM_TLS __declspec(thread)
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #  define CURIUM_TLS _Thread_local
@@ -57,17 +59,17 @@ typedef void* U;
 typedef void* K;
 typedef void* V;
 
-#define curium_any_to_str(v) _Generic((v),                                   \ 
-    curium_string_t*: ((curium_string_t*)(v))->data,                          \ 
-    char*:            (v),                                                    \ 
-    const char*:      (v),                                                    \ 
-    int:              (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%d", (int)(v)),      _curium_fmt_buf), \ 
-    unsigned int:     (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%u", (unsigned int)(v)), _curium_fmt_buf), \ 
-    long:             (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%ld", (long)(v)),    _curium_fmt_buf), \ 
-    unsigned long:    (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%lu", (unsigned long)(v)), _curium_fmt_buf), \ 
-    double:           (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%g",  (double)(v)),   _curium_fmt_buf), \ 
-    float:            (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%g",  (double)(v)),   _curium_fmt_buf), \ 
-    default:          (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%p",  (void*)(v)),    _curium_fmt_buf)  \ 
+#define curium_any_to_str(v) _Generic((v),                                   \
+    curium_string_t*: ((curium_string_t*)(v))->data,                          \
+    char*:            (v),                                                    \
+    const char*:      (v),                                                    \
+    int:              (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%d", (int)(v)),      _curium_fmt_buf), \
+    unsigned int:     (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%u", (unsigned int)(v)), _curium_fmt_buf), \
+    long:             (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%ld", (long)(v)),    _curium_fmt_buf), \
+    unsigned long:    (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%lu", (unsigned long)(v)), _curium_fmt_buf), \
+    double:           (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%g",  (double)(v)),   _curium_fmt_buf), \
+    float:            (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%g",  (double)(v)),   _curium_fmt_buf), \
+    default:          (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), "%p",  (void*)(v)),    _curium_fmt_buf)  \
 )
 static char _curium_fmt_buf[64];
 
@@ -167,12 +169,10 @@ int curium_factorial(const int curium_n)
 /* unknown statement */
 void curium_main()
 {
-    const int curium_a = 10;
-    const int curium_b = 20;
-    const int curium_c = (curium_a + curium_b);
-    curium_println(curium_c);
-    const int curium_d = curium_power(curium_a, curium_b);
-    curium_println(curium_d);
+    const int curium_a = 3;
+    const int curium_b = 2;
+    const int curium_c = curium_pow_int(curium_a, curium_b);
+    curium_print(curium_string_format("C = %s", curium_any_to_str(curium_c)));
 }
 
 

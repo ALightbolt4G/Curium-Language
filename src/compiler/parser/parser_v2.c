@@ -108,6 +108,7 @@ static void curium_parser_v2_synchronize(curium_parser_v2_t* p) {
 static curium_ast_v2_node_t* curium_parser_v2_parse_type(curium_parser_v2_t* p);
 static curium_ast_v2_node_t* curium_parser_v2_parse_expr(curium_parser_v2_t* p);
 static curium_ast_v2_node_t* curium_parser_v2_parse_stmt(curium_parser_v2_t* p);
+static curium_ast_v2_node_t* curium_parser_v2_parse_struct_literal(curium_parser_v2_t* p, curium_ast_v2_node_t* type_ident);
 static curium_ast_v2_node_t* curium_parser_v2_parse_if(curium_parser_v2_t* p);
 
 /* ============================================================================
@@ -709,6 +710,14 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_primary(curium_parser_v2_t* 
         return err;
     }
 
+    if (p->current.kind == CURIUM_TOK_KW_OPTION || p->current.kind == CURIUM_TOK_KW_RESULT) {
+        size_t l = p->current.line;
+        size_t c = p->current.column;
+        curium_ast_v2_kind_t k = (p->current.kind == CURIUM_TOK_KW_OPTION) ? CURIUM_AST_V2_TYPE_OPTION : CURIUM_AST_V2_TYPE_RESULT;
+        curium_parser_v2_advance(p);
+        return curium_ast_v2_new(k, l, c);
+    }
+
     if (p->current.kind == CURIUM_TOK_IDENTIFIER || 
         p->current.kind == CURIUM_TOK_KW_GC         ||
         p->current.kind == CURIUM_TOK_KW_PRINT      ||
@@ -718,7 +727,13 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_primary(curium_parser_v2_t* 
         p->current.kind == CURIUM_TOK_KW_REQUIRE) {
         curium_ast_v2_node_t* ident = curium_ast_v2_new(CURIUM_AST_V2_IDENTIFIER, line, col);
         ident->as.identifier.value = curium_string_new(p->current.lexeme ? p->current.lexeme->data : "");
-        curium_parser_v2_advance(p); /* Use advance instead of manual match for these grouped kinds */
+        curium_parser_v2_advance(p);
+        
+        /* Lookahead for struct literal: Type { ... } */
+        if (p->current.kind == CURIUM_TOK_LBRACE) {
+            return curium_parser_v2_parse_struct_literal(p, ident);
+        }
+        
         return ident;
     }
 
@@ -767,9 +782,16 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_postfix(curium_parser_v2_t* 
             expr = call;
         }
         /* Field access: expr.field */
-        else if (curium_parser_v2_match(p, CURIUM_TOK_DOT)) {
-            curium_parser_v2_expect(p, CURIUM_TOK_IDENTIFIER, "field name");
-            curium_string_t* field_name = curium_string_new(p->previous.lexeme ? p->previous.lexeme->data : "");
+        else if (curium_parser_v2_match(p, CURIUM_TOK_DOT) || curium_parser_v2_match(p, CURIUM_TOK_DOUBLE_COLON)) {
+            curium_string_t* field_name = NULL;
+            if (p->current.kind == CURIUM_TOK_IDENTIFIER || 
+                p->current.kind == CURIUM_TOK_KW_OK || 
+                p->current.kind == CURIUM_TOK_KW_ERR) {
+                field_name = curium_string_new(p->current.lexeme ? p->current.lexeme->data : "");
+                curium_parser_v2_advance(p);
+            } else {
+                curium_parser_v2_expect(p, CURIUM_TOK_IDENTIFIER, "field name");
+            }
             curium_ast_v2_node_t* fa = curium_ast_v2_new(CURIUM_AST_V2_FIELD_ACCESS, line, col);
             fa->as.field_access.object = expr;
             fa->as.field_access.field  = field_name;
@@ -852,7 +874,7 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_binary(curium_parser_v2_t* p
         curium_string_t* op = NULL;
         int next_prec   = 0;
 
-        if (p->current.kind == CURIUM_TOK_STAR || p->current.kind == CURIUM_TOK_SLASH) {
+        if (p->current.kind == CURIUM_TOK_STAR || p->current.kind == CURIUM_TOK_SLASH || p->current.kind == CURIUM_TOK_PERCENT) {
             next_prec = 5;
         } else if (p->current.kind == CURIUM_TOK_PLUS || p->current.kind == CURIUM_TOK_MINUS) {
             next_prec = 4;
@@ -1139,6 +1161,44 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_return(curium_parser_v2_t* p
  * Impl declaration: impl Name { fn method() {} ... }
  * NOTE: the caller must NOT pre-advance.
  * ==========================================================================*/
+static curium_ast_v2_node_t* curium_parser_v2_parse_struct_literal(curium_parser_v2_t* p, curium_ast_v2_node_t* type_ident) {
+    size_t line = type_ident->line;
+    size_t col  = type_ident->column;
+    curium_parser_v2_expect(p, CURIUM_TOK_LBRACE, "{");
+
+    curium_ast_v2_node_t* fields = NULL;
+    curium_ast_v2_node_t* fields_tail = NULL;
+
+    while (!curium_parser_v2_match(p, CURIUM_TOK_RBRACE)) {
+        if (p->current.kind == CURIUM_TOK_EOF) break;
+
+        size_t fline = p->current.line;
+        size_t fcol  = p->current.column;
+
+        curium_parser_v2_expect(p, CURIUM_TOK_IDENTIFIER, "field name");
+        curium_ast_v2_node_t* target = curium_ast_v2_new(CURIUM_AST_V2_IDENTIFIER, fline, fcol);
+        target->as.identifier.value = curium_string_new(p->previous.lexeme ? p->previous.lexeme->data : "");
+
+        curium_parser_v2_expect(p, CURIUM_TOK_COLON, ":");
+        curium_ast_v2_node_t* value = curium_parser_v2_parse_expr(p);
+
+        /* Map each field initialization to an assignment node for storage */
+        curium_ast_v2_node_t* assign = curium_ast_v2_new(CURIUM_AST_V2_ASSIGN, fline, fcol);
+        assign->as.assign_stmt.target = target;
+        assign->as.assign_stmt.value = value;
+
+        if (!fields) { fields = assign; fields_tail = assign; }
+        else { fields_tail->next = assign; fields_tail = assign; }
+
+        if (p->current.kind == CURIUM_TOK_COMMA) curium_parser_v2_advance(p);
+    }
+
+    curium_ast_v2_node_t* node = curium_ast_v2_new(CURIUM_AST_V2_STRUCT_LITERAL, line, col);
+    node->as.struct_literal.type = type_ident;
+    node->as.struct_literal.fields = fields;
+    return node;
+}
+
 static curium_ast_v2_node_t* curium_parser_v2_parse_impl(curium_parser_v2_t* p) {
     size_t line = p->current.line;
     size_t col  = p->current.column;
@@ -1682,7 +1742,8 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_stmt(curium_parser_v2_t* p) 
         }
     }
     
-    if (p->current.kind == CURIUM_TOK_KW_C) {
+    if (p->current.kind == CURIUM_TOK_KW_C || 
+        (p->current.kind == CURIUM_TOK_IDENTIFIER && p->current.lexeme && strcmp(p->current.lexeme->data, "c") == 0)) {
         size_t line = p->current.line;
         size_t col  = p->current.column;
         curium_parser_v2_advance(p);

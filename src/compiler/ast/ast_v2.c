@@ -244,6 +244,11 @@ static void curium_ast_v2_free_node_recursive(curium_ast_v2_node_t* node) {
         case CURIUM_AST_V2_RESULT_ERR:
             curium_ast_v2_free_node_recursive(node->as.option_some.value);
             break;
+
+        case CURIUM_AST_V2_STRUCT_LITERAL:
+            curium_ast_v2_free_node_recursive(node->as.struct_literal.type);
+            curium_ast_v2_free_node_recursive(node->as.struct_literal.fields);
+            break;
             
         case CURIUM_AST_V2_TYPE_NAMED:
             if (node->as.type_named.name) curium_string_free(node->as.type_named.name);
@@ -399,6 +404,9 @@ static void curium_ast_v2_free_node_strings(curium_ast_v2_node_t* node) {
         case CURIUM_AST_V2_INTERPOLATED_STRING:
             if (node->as.interpolated_string.template) curium_string_free(node->as.interpolated_string.template);
             break;
+        case CURIUM_AST_V2_STRUCT_LITERAL:
+            /* Strings inside are in the child identifiers/expressions */
+            break;
         case CURIUM_AST_V2_POLYGLOT:
             if (node->as.polyglot.code) curium_string_free(node->as.polyglot.code);
             break;
@@ -488,6 +496,7 @@ const char* curium_ast_v2_kind_to_string(curium_ast_v2_kind_t kind) {
         case CURIUM_AST_V2_OPTION_NONE: return "None";
         case CURIUM_AST_V2_RESULT_OK: return "Ok";
         case CURIUM_AST_V2_RESULT_ERR: return "Err";
+        case CURIUM_AST_V2_STRUCT_LITERAL: return "struct_literal";
         case CURIUM_AST_V2_TYPE_NAMED: return "type_named";
         case CURIUM_AST_V2_TYPE_STRNUM: return "type_strnum";
         case CURIUM_AST_V2_TYPE_DYN: return "type_dyn";

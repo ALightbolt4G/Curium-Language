@@ -55,6 +55,7 @@ typedef enum {
     CURIUM_AST_V2_OPTION_NONE,  // None
     CURIUM_AST_V2_RESULT_OK,    // Ok(value)
     CURIUM_AST_V2_RESULT_ERR,   // Err(error)
+    CURIUM_AST_V2_STRUCT_LITERAL, // Type { field: val }
     
     /* Types */
     CURIUM_AST_V2_TYPE_NAMED,   // int, string, User
@@ -248,6 +249,12 @@ struct curium_ast_v2_node {
         struct {
             curium_ast_v2_node_t* expr;
         } deref_expr, addr_of_expr;
+
+        /* Struct literal: Type { field: val, ... } */
+        struct {
+            curium_ast_v2_node_t* type;
+            curium_ast_v2_node_t* fields; /* linked list of CURIUM_AST_V2_ASSIGN */
+        } struct_literal;
         
         /* Unary and binary operations */
         struct {

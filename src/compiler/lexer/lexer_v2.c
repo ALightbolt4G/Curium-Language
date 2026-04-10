@@ -205,8 +205,13 @@ curium_token_t curium_lexer_v2_next_token(curium_lexer_t* lx) {
                 curium_lexer_v2_next(lx);
                 return curium_make_token(CURIUM_TOK_COLON_EQUAL, ":=", 2, start_line, start_col);
             }
+            if (curium_lexer_v2_peek(lx) == ':') {
+                curium_lexer_v2_next(lx);
+                return curium_make_token(CURIUM_TOK_DOUBLE_COLON, "::", 2, start_line, start_col);
+            }
             return curium_make_token(CURIUM_TOK_COLON, ":", 1, start_line, start_col);
         }
+        case '%': return curium_make_token(CURIUM_TOK_PERCENT,   "%",  1, start_line, start_col);
         case '.': return curium_make_token(CURIUM_TOK_DOT,       ".",  1, start_line, start_col);
         case '@': return curium_make_token(CURIUM_TOK_AT,        "@",  1, start_line, start_col);
         case '$': return curium_make_token(CURIUM_TOK_DOLLAR,     "$",  1, start_line, start_col);
@@ -365,8 +370,7 @@ curium_token_t curium_lexer_v2_next_token(curium_lexer_t* lx) {
             size_t len  = end - start_pos;
             const char* ident = lx->src + start_pos;
 
-            /* BUG FIX: raw string literal r"..." — detected here after 'r' is
-             * consumed as an identifier char and the next char is '"'. */
+            /* BUG FIX #002: raw string literal r"..." */
             if (len == 1 && ident[0] == 'r' && curium_lexer_v2_peek(lx) == '"') {
                 return curium_lexer_v2_parse_raw_string(lx, start_line, start_col);
             }

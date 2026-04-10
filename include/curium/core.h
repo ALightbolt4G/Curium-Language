@@ -16,6 +16,17 @@
 #include <pthread.h>
 #endif
 
+/* Portable thread-local storage macro.
+ * TCC 0.9.27 on Windows does not support __thread / _Thread_local,
+ * so we fall back to a plain global (safe for single-threaded compiler usage). */
+#if defined(__TINYC__)
+#  define CURIUM_TLS /* TCC: no TLS support */
+#elif defined(_MSC_VER)
+#  define CURIUM_TLS __declspec(thread)
+#else
+#  define CURIUM_TLS __thread
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

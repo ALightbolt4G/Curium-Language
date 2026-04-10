@@ -58,7 +58,7 @@ typedef struct {
     int line;
 } curium_exception_frame_t;
 
-extern __thread curium_exception_frame_t* curium_current_frame;
+extern CURIUM_TLS curium_exception_frame_t* curium_current_frame;
 
 #define CURIUM_TRY() \
     for (curium_exception_frame_t __curium_frame = {0}; !__curium_frame.active; __curium_frame.active = 1) \

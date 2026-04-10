@@ -17,14 +17,16 @@ typedef enum {
     CURIUM_TOK_RBRACKET,
     CURIUM_TOK_SEMI,
     CURIUM_TOK_COMMA,
-    CURIUM_TOK_COLON,
-    CURIUM_TOK_EQUAL,
+    CURIUM_TOK_COLON,           /* : */
+    CURIUM_TOK_DOUBLE_COLON,    /* :: */
+    CURIUM_TOK_EQUAL,           /* = */
 
     /* Operators */
     CURIUM_TOK_PLUS,
     CURIUM_TOK_MINUS,
     CURIUM_TOK_STAR,
     CURIUM_TOK_SLASH,
+    CURIUM_TOK_PERCENT,         /* % */
     CURIUM_TOK_DOT,
     CURIUM_TOK_LT,
     CURIUM_TOK_GT,

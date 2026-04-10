@@ -17,7 +17,7 @@
 #define curium_write(fd, buf, count) do { if (write(fd, buf, count)) {} } while (0)
 #endif
 
-__thread curium_exception_frame_t* curium_current_frame = NULL;
+CURIUM_TLS curium_exception_frame_t* curium_current_frame = NULL;
 
 static curium_error_code_t curium_last_error = CURIUM_SUCCESS;
 static char curium_error_message[1024] = {0};

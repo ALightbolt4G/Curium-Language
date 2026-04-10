@@ -1011,15 +1011,18 @@ static int curium_invoke_system_compiler(const char* c_path, const char* output_
        so `cm main.cm app` works even without a pre-built libcm present. */
     const char* candidates[] = { "tcc", "gcc", "clang", "cc", NULL };
     const char* cc = NULL;
+    int is_tcc = 0;
 
     for (int i = 0; candidates[i]; ++i) {
         curium_cmd_t* probe = curium_cmd_new(candidates[i]);
         if (!probe) continue;
-        curium_cmd_arg(probe, "--version");
+        /* TCC uses -v, not --version */
+        curium_cmd_arg(probe, strcmp(candidates[i], "tcc") == 0 ? "-v" : "--version");
         curium_cmd_result_t* r = curium_cmd_run(probe);
         curium_cmd_free(probe);
         if (r && r->exit_code == 0) {
             cc = candidates[i];
+            is_tcc = (strcmp(cc, "tcc") == 0);
             curium_cmd_result_free(r);
             break;
         }
@@ -1027,7 +1030,7 @@ static int curium_invoke_system_compiler(const char* c_path, const char* output_
     }
 
     if (!cc) {
-        curium_error_set(CURIUM_ERROR_IO, "no C compiler found (expected gcc/clang/cc in PATH)");
+        curium_error_set(CURIUM_ERROR_IO, "no C compiler found (expected tcc/gcc/clang/cc in PATH)");
         return -1;
     }
 
@@ -1051,18 +1054,22 @@ static int curium_invoke_system_compiler(const char* c_path, const char* output_
     curium_cmd_arg(cmd, "-Iinclude");
     curium_cmd_arg(cmd, "-o");
     curium_cmd_arg(cmd, output_exe);
-    curium_cmd_arg(cmd, "-Wall");
-    curium_cmd_arg(cmd, "-Wextra");
+
+    /* TCC does not support -Wall / -Wextra */
+    if (!is_tcc) {
+        curium_cmd_arg(cmd, "-Wall");
+        curium_cmd_arg(cmd, "-Wextra");
+    }
     
     extern int curium_opt_release;
     extern int curium_opt_debug;
     
     if (curium_opt_release) {
-        curium_cmd_arg(cmd, "-O3");
+        if (!is_tcc) curium_cmd_arg(cmd, "-O3");
     } else if (curium_opt_debug) {
         curium_cmd_arg(cmd, "-g");
         #ifndef _WIN32
-        curium_cmd_arg(cmd, "-fsanitize=address");
+        if (!is_tcc) curium_cmd_arg(cmd, "-fsanitize=address");
         #endif
     }
 
