@@ -1,4 +1,4 @@
-# 🛠️ Curium CLI Reference (v4.0)
+# 🛠️ Curium CLI Reference (v5.0)
 
 Curium provides a powerful command-line interface for managing, building, and running projects.
 

@@ -1,4 +1,4 @@
-# 🚀 Getting Started with Curium v4.0
+# 🚀 Getting Started with Curium v5.0
 
 Curium is a next-generation systems programming language transpiling down to raw C11 while guaranteeing absolute memory safety and the ergonomics of C# and Go. It is designed precisely for performance-critical environments where speed and reliability are equally paramount.
 
@@ -23,7 +23,7 @@ Curium depends on a C99/C11 compliant compiler (MinGW, GCC, Clang, or TCC) and C
 
 ## 📝 Step 2: The Structure
 
-Create a test program. Unlike older iterations, v4.0 is fully capable of type-agnostic formatting and automated memory cleanup out-of-the-box.
+Create a test program. Unlike older iterations, v5.0 is fully capable of type-agnostic formatting and automated memory cleanup out-of-the-box.
 
 ```cm
 // src/main.cm
@@ -38,7 +38,9 @@ fn main() {
 
 ---
 
-## 🎨 Step 3: Monumental v4 Features
+## 🎨 Step 3: Monumental v5 Features
+
+The v5 compiler comes equipped with a brand-new Neon-DOD TUI offering advanced metrics and real-time visualization of arena memory statistics.
 
 ### 1. The `strnum` Super-Type
 Curium 4.0 introduces the `strnum` primitive type. It seamlessly pivots between string operations and math operations underneath without sacrificing static typing speed.
@@ -48,7 +50,7 @@ payload = "Not Found"; // Completely legal, memory handled.
 ```
 
 ### 2. Dynamic Operators (`dyn`)
-Define custom infix operations on runtime logic. With v4.0, you can explicitly map patterns to functions or direct return blocks, always guarded by a mandatory fallback for guaranteed compilation stability.
+Define custom infix operations on runtime logic. With v5.0, you can explicitly map patterns to functions or direct return blocks, always guarded by a mandatory fallback for guaranteed compilation stability.
 ```cm
 mut op = "custom_add";
 

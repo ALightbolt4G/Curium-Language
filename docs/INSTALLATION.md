@@ -1,4 +1,4 @@
-# 🚀 Curium Installation Guide (v4.0)
+# 🚀 Curium Installation Guide (v5.0)
 
 Curium is a lightweight language designed for peak performance and safety. Getting started is easy on any major platform.
 

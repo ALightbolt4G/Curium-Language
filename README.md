@@ -1,16 +1,16 @@
-# ⚡ Curium Language v4.0
+# ⚡ Curium Language v5.0
 
 **Professional C#-like/Go-hybrid Language for C-performance Systems**
 
-Curium is a modern programming language designed for high-performance systems development. It combines the safety and ergonomics of modern languages like Go and Rust with the raw power and control of C.
+Curium is a modern programming language designed for high-performance systems development. It combines the safety and ergonomics of modern languages like Go and Rust with the raw power and control of C, now powered directly by the TCC backend.
 
 ## ✨ Key Features
 
-- **🚀 Performance**: Transpiles directly to C11, ensuring maximum performance and portability.
+- **🚀 Performance**: Transpiles directly to C11 (TCC integrated), ensuring maximum performance and portability.
 - **🛡️ Memory Safety**: Features a built-in reference-counting garbage collector for effortless memory management.
 - **💎 Modern Syntax**: Clean, C#-like syntax with powerful features like pattern matching and type-agnostic `println`.
 - **动态 Dynamic Operators**: Use the `dyn` keyword to define custom infix operators with full logic and safety fallbacks.
-- **🛠️ Integrated CLI**: A unified tool for building, running, and managing packages.
+- **🛠️ Integrated CLI**: A unified tool for building, running, and managing packages, newly upgraded with the gradient Neon-DOD TUI.
 - **🔌 C Interoperability**: Seamlessly call C functions or embed C code directly using `c { ... }` blocks.
 
 ## 🏁 Quick Start
@@ -28,7 +28,7 @@ Create a file named `hello.cm`:
 
 ```cm
 fn main() {
-    println("Hello, Curium v4!");
+    println("Hello, Curium v5!");
 }
 ```
 
