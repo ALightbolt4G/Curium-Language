@@ -1742,8 +1742,10 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_stmt(curium_parser_v2_t* p) 
         }
     }
     
-    if (p->current.kind == CURIUM_TOK_KW_C || 
-        (p->current.kind == CURIUM_TOK_IDENTIFIER && p->current.lexeme && strcmp(p->current.lexeme->data, "c") == 0)) {
+    int is_poly_c = (p->current.kind == CURIUM_TOK_KW_C || (p->current.kind == CURIUM_TOK_IDENTIFIER && p->current.lexeme && strcmp(p->current.lexeme->data, "c") == 0));
+    int is_poly_cpp = (p->current.kind == CURIUM_TOK_IDENTIFIER && p->current.lexeme && strcmp(p->current.lexeme->data, "cpp") == 0);
+
+    if (is_poly_c || is_poly_cpp) {
         size_t line = p->current.line;
         size_t col  = p->current.column;
         curium_parser_v2_advance(p);
@@ -1777,7 +1779,7 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_stmt(curium_parser_v2_t* p) 
             }
             if (brace_depth != 0) {
                 curium_string_free(code);
-                CURIUM_THROW(CURIUM_ERROR_PARSE, "unclosed `c { ... }` block");
+                CURIUM_THROW(CURIUM_ERROR_PARSE, "unclosed polyglot block");
             }
             /* Capture the raw content (excluding the closing `}`) */
             size_t content_len = raw_i - raw_start;
@@ -1800,7 +1802,7 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_stmt(curium_parser_v2_t* p) 
         
         curium_ast_v2_node_t* poly = curium_ast_v2_new(CURIUM_AST_V2_POLYGLOT, line, col);
         poly->as.polyglot.code   = code;
-        poly->as.polyglot.is_cpp = 0;
+        poly->as.polyglot.is_cpp = is_poly_cpp;
         return poly;
     }
 

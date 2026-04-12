@@ -1271,6 +1271,10 @@ static int curium_typecheck_stmt(curium_typecheck_ctx_t* ctx, curium_ast_v2_node
             return 1;
         }
         
+        case CURIUM_AST_V2_POLYGLOT:
+            /* Polyglot blocks bypass the semantic typechecker natively */
+            return 1;
+            
         default:
             return 1;
     }
