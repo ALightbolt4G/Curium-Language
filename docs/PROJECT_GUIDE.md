@@ -87,6 +87,16 @@ The CLI will automatically find, compile, and run every `.cm` file in the folder
 
 ---
 
+## ⚕️ Validating Project Health
+
+At any point, use the diagnostic health execution tool to ensure project integrity:
+```bash
+cm doctor
+```
+Running this command scans the `src/` directory (and all `utils`/`models`/`services` folders) for un-encapsulated/raw `malloc` usage, validates `curium.json`, ensures the presence of the TCC/GCC backend, and dry-runs semantic parsing verifying absolute syntactic correctness without creating binary garbage.
+
+---
+
 ## GitHub and `.cm` on github.com
 
 GitHub’s language bar uses [Linguist](https://github.com/github/linguist). This repository maps `*.cm` to **C** in [`.gitattributes`](../.gitattributes) so files count as code and receive C-like highlighting. Curium-specific highlighting is provided by the VS Code extension in [`vscode-extension/cm-language/`](../vscode-extension/cm-language/).

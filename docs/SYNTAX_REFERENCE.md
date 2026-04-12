@@ -10,12 +10,13 @@ A comprehensive, A-Z reference of Curium's syntax and keywords.
 - `int`: Native integer.
 - `float`: Double-precision float.
 - `bool`: `true` or `false`.
-- `string`: RC managed string slice.
-- `strnum`: A dual-state container capable of acting as both a discrete number and a string string depending on context.
+- `string`: RC managed string slice. Supports interpolation: `"hello {name}"`.
+- `strnum`: A dual-state container capable of acting as both a discrete number and a string depending on context.
 
 ### Variables
 - `let x = 10;`: Immutable explicitly.
 - `mut y = 20;`: Mutable.
+- `#[hot] mut counter = 0;`: The compiler will emit a memory-register lock hint to the underlying CPU (compiling to `register` in C11).
 
 ### Complex Types
 - `^T`: Safe Reference Pointer to `T`.
@@ -75,6 +76,25 @@ struct Point {
 }
 
 mut p = Point { x: 10, y: 20 };
+```
+
+### `union`
+Memory-overlapped data structures.
+```cm
+union Overlay {
+    bytes: array<int>;
+    raw_memory: ^int;
+}
+```
+
+### `enum`
+Advanced multi-variant tagged unions natively integrated with the compiler match logic.
+```cm
+enum Token {
+    EOF,
+    Identifier(string),
+    Number(float)
+}
 ```
 
 ### `impl` and `trait`

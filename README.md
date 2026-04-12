@@ -4,14 +4,15 @@
 
 Curium is a modern programming language designed for high-performance systems development. It combines the safety and ergonomics of modern languages like Go and Rust with the raw power and control of C, now powered directly by the TCC backend.
 
-## ✨ Key Features
+## ⚡ Curium in 10 Seconds
 
-- **🚀 Performance**: Transpiles directly to C11 (TCC integrated), ensuring maximum performance and portability.
-- **🛡️ Memory Safety**: Features a built-in reference-counting garbage collector for effortless memory management.
-- **💎 Modern Syntax**: Clean, C#-like syntax with powerful features like pattern matching and type-agnostic `println`.
-- **动态 Dynamic Operators**: Use the `dyn` keyword to define custom infix operators with full logic and safety fallbacks.
-- **🛠️ Integrated CLI**: A unified tool for building, running, and managing packages, newly upgraded with the gradient Neon-DOD TUI.
-- **🔌 C Interoperability**: Seamlessly call C functions or embed C code directly using `c { ... }` blocks.
+1. **Language:** Clean C#-like/Rust-like semantics that transpile directly to safe **C11**, compiled seamlessly via an integrated **TCC Engine**.
+2. **Memory Safety:** Effortless automatic memory management using a built-in ARC garbage collector, with Data-Oriented Design override contexts via `reactor arena(size) { ... }`.
+3. **Unique Typing:** Combine string/number operations with the `strnum` dual-type, and write safe error flows with `?T` Options and `Result<T,E>`.
+4. **Performance Hacks:** Use `#[hot]` attribute on variables to give the CPU absolute register residency guarantees.
+5. **Dynamic Operators:** Never be restricted by static operators. Define runtime logic for any syntax operator with `dyn op in (...)` and strong safety fallbacks.
+6. **C/C++ Interop:** Seamlessly inject zero-cost abstraction raw code via `c { ... }` blocks.
+7. **Developer Experience:** Blazing-fast CLI packed with a graphical `Neon-DOD TUI`, audio cues, and integrated package/project management natively built-in.
 
 ## 🏁 Quick Start
 

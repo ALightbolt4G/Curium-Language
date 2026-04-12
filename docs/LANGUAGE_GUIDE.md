@@ -43,7 +43,7 @@ fn main() {
 The v5 compiler comes equipped with a brand-new Neon-DOD TUI offering advanced metrics and real-time visualization of arena memory statistics.
 
 ### 1. The `strnum` Super-Type
-Curium 4.0 introduces the `strnum` primitive type. It seamlessly pivots between string operations and math operations underneath without sacrificing static typing speed.
+Curium 5.0 introduces the `strnum` primitive type. It seamlessly pivots between string operations and math operations underneath without sacrificing static typing speed.
 ```cm
 mut payload: strnum = 404;
 payload = "Not Found"; // Completely legal, memory handled.
@@ -86,11 +86,44 @@ c {
 Opt entirely out of the garbage-collector overhead manually when required using Memory Reactors.
 ```cm
 reactor arena(1024) {
-    // 1024 byte bump allocator. Lightning fast allocations.
+    // 1024 byte bump allocator. Lightning fast allocations. O(blocks) destruction.
+}
+```
+
+### 6. Enumerations and Match Control Flow
+Full support for advanced enums (including variant types) paired with the `match` syntactic flow control.
+```cm
+enum Status {
+    Ok(int),
+    Err(string),
+    Pending
+}
+
+fn handle_status(s: Status) {
+    match s {
+        Status::Ok(val) => { println("Success: " + val); },
+        Status::Err(e) => { println("Failed! Msg: " + e); },
+        Status::Pending => { println("Waiting..."); }
+    }
+}
+```
+
+### 7. Concurrency and Error Handling
+Spawn tasks on isolated threads seamlessly and handle cascading errors via `try/catch/throw`:
+```cm
+spawn {
+    // Executes entirely in a background thread
+    try {
+        if check_network() == false {
+            throw "Network timeout!";
+        }
+    } catch (e) {
+        println("Caught async error: " + e);
+    }
 }
 ```
 
 ---
 
 ## 📚 Next Steps
-Continue to explore the [Syntax Reference](SYNTAX_REFERENCE.md) to dive deeper into Enums, Traits, Iterators, and the exhaustive keyword checklist!
+Continue to explore the [Syntax Reference](SYNTAX_REFERENCE.md) to dive deeper into Enums, Traits, Iterators, `#[hot]` bindings, and the exhaustive keyword checklist!
