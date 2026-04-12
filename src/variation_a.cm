@@ -1,0 +1,2 @@
+import "../variation_a.cm";
+fn sub() { print("I am in src"); }

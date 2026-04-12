@@ -114,6 +114,17 @@ static char* win_build_cmdline(const char* const* argv) {
     return line;
 }
 
+typedef struct {
+    HANDLE pipe;
+    char** output;
+} win_read_thread_params;
+
+static DWORD WINAPI win_read_thread_proc(LPVOID param) {
+    win_read_thread_params* p = (win_read_thread_params*)param;
+    if (p) *p->output = win_read_pipe(p->pipe);
+    return 0;
+}
+
 curium_cmd_result_t* curium_cmd_run(curium_cmd_t* cmd) {
     if (!cmd || cmd->argc == 0) return NULL;
 
@@ -147,20 +158,11 @@ curium_cmd_result_t* curium_cmd_run(curium_cmd_t* cmd) {
     PROCESS_INFORMATION pi;
     ZeroMemory(&pi, sizeof(pi));
 
-    /* Build full command line including argv[0]; pass NULL lpApplicationName
-       so Windows searches PATH for the executable automatically */
     char* cmdline = win_build_cmdline(cmd->argv);
-
-    BOOL ok = CreateProcessA(
-        NULL,     /* lpApplicationName — NULL so PATH lookup works */
-        cmdline,  /* lpCommandLine — full quoted command + args    */
-        NULL, NULL, TRUE, 0, NULL, NULL,
-        &si, &pi
-    );
-
+    BOOL ok = CreateProcessA(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
     free(cmdline);
 
-    /* Close write ends in the parent after launching child */
+    /* Close write ends in parent */
     CloseHandle(stdout_w);
     CloseHandle(stderr_w);
 
@@ -171,14 +173,24 @@ curium_cmd_result_t* curium_cmd_run(curium_cmd_t* cmd) {
         return result;
     }
 
-    /* Read output */
-    char* out = win_read_pipe(stdout_r);
-    char* err = win_read_pipe(stderr_r);
+    /* Start threads to read pipes concurrently to prevent deadlocks */
+    char *out = NULL, *err = NULL;
+    win_read_thread_params params_out = { stdout_r, &out };
+    win_read_thread_params params_err = { stderr_r, &err };
+    
+    HANDLE threads[2];
+    threads[0] = CreateThread(NULL, 0, win_read_thread_proc, &params_out, 0, NULL);
+    threads[1] = CreateThread(NULL, 0, win_read_thread_proc, &params_err, 0, NULL);
 
+    /* Wait for both reading threads to finish */
+    WaitForMultipleObjects(2, threads, TRUE, INFINITE);
+    
+    CloseHandle(threads[0]);
+    CloseHandle(threads[1]);
     CloseHandle(stdout_r);
     CloseHandle(stderr_r);
 
-    /* Wait for child */
+    /* Wait for child to exit */
     WaitForSingleObject(pi.hProcess, INFINITE);
     DWORD exit_code = 0;
     GetExitCodeProcess(pi.hProcess, &exit_code);

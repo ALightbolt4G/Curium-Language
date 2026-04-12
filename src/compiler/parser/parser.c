@@ -125,12 +125,13 @@ static void curium_try_remove_output(const char* output_exe) {
 
 /* Removed legacy curium_collect_require_modules */
 
-static int curium_invoke_system_compiler(const char* c_path, const char* output_exe) {
+static int curium_invoke_system_compiler(const char* c_path, const char* output_exe, int is_cpp) {
     if (!c_path || !output_exe) return -1;
 
-    /* Enterprise default: compile generated C together with the CM runtime sources,
-       so `cm main.cm app` works even without a pre-built libcm present. */
-    const char* candidates[] = { "tcc", "gcc", "clang", "cc", NULL };
+    /* Enterprise default: compile generated C/C++ together with the CM runtime sources */
+    const char* candidates_c[] = { "tcc", "gcc", "clang", "cc", NULL };
+    const char* candidates_cpp[] = { "g++", "clang++", "c++", NULL };
+    const char** candidates = is_cpp ? candidates_cpp : candidates_c;
     const char* cc = NULL;
 
     for (int i = 0; candidates[i]; ++i) {
@@ -214,43 +215,62 @@ static void curium_resolve_imports_recursive_v2(curium_ast_v2_list_t* main_ast, 
             }
 
             if (path) {
-                /* Form complete path. Simplified approach: just use path as given or relative to src/ or std/ etc */
+                /* Resolution algorithm:
+                 * 1. Check if path exists relative to current WD
+                 * 2. Check if path exists in src/
+                 * 3. Check if path exists in std/
+                 * 4. Once located, canonicalize the path and check already_loaded.
+                 */
                 char full_path[1024];
+                char* src = NULL;
+
+                /* Try local */
                 snprintf(full_path, sizeof(full_path), "%s", path);
+                src = curium_read_file_all(full_path);
                 
-                /* Check if already loaded */
-                int already_loaded = 0;
-                for (size_t i = 0; i < loaded_paths->count; i++) {
-                    if (strcmp(loaded_paths->items[i]->data, full_path) == 0) {
-                        already_loaded = 1;
-                        break;
-                    }
+                /* Try src/ */
+                if (!src) {
+                    snprintf(full_path, sizeof(full_path), "src/%s", path);
+                    src = curium_read_file_all(full_path);
                 }
                 
-                if (!already_loaded) {
-                    char* src = curium_read_file_all(full_path);
-                    if (!src) {
-                        snprintf(full_path, sizeof(full_path), "src/%s", path);
-                        src = curium_read_file_all(full_path);
+                /* Try std/ */
+                if (!src) {
+                    snprintf(full_path, sizeof(full_path), "std/%s", path);
+                    src = curium_read_file_all(full_path);
+                }
+
+                if (src) {
+                    /* Canonicalize the path before checking already_loaded */
+                    curium_string_t* canonical = curium_path_normalize(full_path);
+                    const char* norm_path = canonical->data;
+
+                    int already_loaded = 0;
+                    for (size_t i = 0; i < loaded_paths->count; i++) {
+                        if (strcmp(loaded_paths->items[i]->data, norm_path) == 0) {
+                            already_loaded = 1;
+                            break;
+                        }
                     }
-                    if (!src) {
-                        snprintf(full_path, sizeof(full_path), "std/%s", path);
-                        src = curium_read_file_all(full_path);
-                    }
-                    if (src) {
-                        curium_module_list_append(loaded_paths, full_path);
+
+                    if (!already_loaded) {
+                        /* printf("DEBUG: Loading %s\n", norm_path); */
+                        curium_module_list_append(loaded_paths, (char*)norm_path);
 
                         curium_ast_v2_list_t sub_ast = curium_parse_v2(src);
-                        /* Track imported sources for cleanup (append copies into curium_string_t). */
+                        /* Track imported sources for cleanup */
                         curium_module_list_append(source_buffers, src);
                         free(src);
+                        
                         if (curium_error_get_last() != CURIUM_ERROR_PARSE) {
                             /* Resolve imports inside the imported file */
                             curium_resolve_imports_recursive_v2(&sub_ast, loaded_paths, source_buffers);
                             
-                            /* Prepend the sub AST so imported symbols are defined before the importer
-                             * (typecheck and codegen walk the list in order). */
+                            /* Prepend the sub AST */
                             if (sub_ast.head) {
+                                if (sub_ast.has_cpp_blocks) {
+                                    main_ast->has_cpp_blocks = 1;
+                                }
                                 if (!main_ast->head) {
                                     main_ast->head = sub_ast.head;
                                     main_ast->tail = sub_ast.tail;
@@ -261,8 +281,12 @@ static void curium_resolve_imports_recursive_v2(curium_ast_v2_list_t* main_ast, 
                             }
                         }
                     } else {
-                        printf("Warning: could not resolve import '%s'\n", path);
+                        /* Already loaded, only cleanup the raw buffer */
+                        /* printf("DEBUG: Already loaded %s, skipping\n", norm_path); */
+                        free(src);
                     }
+                } else {
+                    printf("Warning: could not resolve import '%s' in any known location (., src/, std/)\n", path);
                 }
             }
         }
@@ -276,7 +300,10 @@ void curium_resolve_imports_for_ast_v2(curium_ast_v2_list_t* ast, const char* en
     curium_module_list_init(&loaded_paths);
     curium_module_list_t source_buffers;
     curium_module_list_init(&source_buffers);
-    if (entry_path) curium_module_list_append(&loaded_paths, entry_path);
+    if (entry_path) {
+        curium_string_t* norm = curium_path_normalize(entry_path);
+        curium_module_list_append(&loaded_paths, (char*)norm->data);
+    }
     curium_resolve_imports_recursive_v2(ast, &loaded_paths, &source_buffers);
     curium_module_list_free(&loaded_paths);
     curium_module_list_free(&source_buffers);
@@ -297,7 +324,9 @@ int curium_compile_file(const char* entry_path, const char* output_exe) {
     curium_module_list_t source_buffers;
     curium_module_list_init(&source_buffers);
     
-    curium_module_list_append(&loaded_paths, entry_path);
+    /* Canonicalize entry path to ensure circularity check works with imports */
+    curium_string_t* entry_norm = curium_path_normalize(entry_path);
+    curium_module_list_append(&loaded_paths, (char*)entry_norm->data);
 
     CURIUM_TRY() {
         ast = curium_parse_v2(src);
@@ -317,7 +346,10 @@ int curium_compile_file(const char* entry_path, const char* output_exe) {
 
     curium_string_t* c_code = curium_codegen_v2_to_c(&ast);
 
-    const char* c_path = "curium_out.c";
+    const char* ext = ast.has_cpp_blocks ? "cpp" : "c";
+    char c_path[128];
+    snprintf(c_path, sizeof(c_path), "curium_out.%s", ext);
+
     if (curium_write_text_file(c_path, c_code->data) != 0) {
         curium_string_free(c_code);
         curium_ast_v2_free_list(&ast);
@@ -329,7 +361,7 @@ int curium_compile_file(const char* entry_path, const char* output_exe) {
     }
 
     curium_try_remove_output(output_exe);
-    int rc = curium_invoke_system_compiler(c_path, output_exe);
+    int rc = curium_invoke_system_compiler(c_path, output_exe, ast.has_cpp_blocks);
 
     curium_string_free(c_code);
     curium_ast_v2_free_list(&ast);

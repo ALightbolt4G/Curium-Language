@@ -1,0 +1,16 @@
+cpp {
+    #include <iostream>
+    
+    extern "C" void curium_main();
+    
+    void cpp_func() {
+        std::cout << "Hello from C++ natively!" << std::endl;
+    }
+}
+
+fn curium_main() {
+    print("Hello from Curium!");
+    cpp {
+        cpp_func();
+    }
+}

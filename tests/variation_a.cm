@@ -1,0 +1,2 @@
+import "src/variation_a.cm";
+fn main() { print("Variation test!"); }

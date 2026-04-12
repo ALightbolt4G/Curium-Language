@@ -1,0 +1,11 @@
+cpp {
+    #include <iostream>
+}
+fn main() {
+    cpp {
+        for(int i=0; i<1000; i++) {
+            std::cout << "STDOUT DATA LINE " << i << " BLAH BLAH BLAH BLAH BLAH" << std::endl;
+            std::cerr << "STDERR DATA LINE " << i << " BLAH BLAH BLAH BLAH BLAH" << std::endl;
+        }
+    }
+}

@@ -74,3 +74,28 @@ int curium_file_write(const char* filepath, const char* content) {
 
     return (written == len) ? 1 : 0;
 }
+
+curium_string_t* curium_path_normalize(const char* path) {
+    if (!path) return NULL;
+    char buffer[4096];
+    char* resolved = NULL;
+
+#ifdef _WIN32
+    resolved = _fullpath(buffer, path, sizeof(buffer));
+#else
+    resolved = realpath(path, buffer);
+#endif
+
+    if (!resolved) {
+        /* Fallback: if file doesn't exist, realpath might fail.
+         * For the import resolver, we only normalize paths that we know exist. */
+        return curium_string_new(path);
+    }
+
+    /* Normalize slashes to forward slashes for consistent comparison */
+    for (int i = 0; resolved[i]; i++) {
+        if (resolved[i] == '\\') resolved[i] = '/';
+    }
+
+    return curium_string_new(resolved);
+}

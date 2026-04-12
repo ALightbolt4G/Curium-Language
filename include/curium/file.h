@@ -37,6 +37,14 @@ curium_string_t* curium_file_read(const char* filepath);
  */
 int curium_file_write(const char* filepath, const char* content);
 
+/**
+ * @brief Canonicalizes a file path to its absolute form.
+ * 
+ * @param path The absolute or relative system path
+ * @return curium_string_t* containing the normalized path. NULL on error.
+ */
+curium_string_t* curium_path_normalize(const char* path);
+
 #ifdef __cplusplus
 }
 #endif

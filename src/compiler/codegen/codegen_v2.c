@@ -1541,7 +1541,9 @@ curium_string_t* curium_codegen_v2_to_c(const curium_ast_v2_list_t* ast) {
         "typedef void* V;\n\n"
         /* FIX #002 / #008: curium_any_to_str — converts any Curium scalar to a C string
          * for safe use as a printf %s argument inside interpolated strings.
-         * Uses C11 _Generic (supported by GCC ≥4.9 and all MinGW targets we ship).   */
+         * Uses C11 _Generic (supported by GCC >= 4.9 and all MinGW targets we ship). */
+        "static char _curium_fmt_buf[64];\n\n"
+        "#ifndef __cplusplus\n"
         "#define curium_any_to_str(v) _Generic((v),                                   \\\n"
         "    curium_string_t*: ((curium_string_t*)(v))->data,                          \\\n"
         "    char*:            (v),                                                    \\\n"
@@ -1554,8 +1556,30 @@ curium_string_t* curium_codegen_v2_to_c(const curium_ast_v2_list_t* ast) {
         "    float:            (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), \"%g\",  (double)(v)),   _curium_fmt_buf), \\\n"
         "    default:          (snprintf(_curium_fmt_buf, sizeof(_curium_fmt_buf), \"%p\",  (void*)(v)),    _curium_fmt_buf)  \\\n"
         ")\n"
-        "static char _curium_fmt_buf[64];\n\n"
+        "#else\n"
+        "static inline const char* curium_any_to_str(curium_string_t* s) { return s->data; }\n"
+        "static inline const char* curium_any_to_str(char* s) { return s; }\n"
+        "static inline const char* curium_any_to_str(const char* s) { return s; }\n"
+        "static inline const char* curium_any_to_str(int v) { snprintf(_curium_fmt_buf, 64, \"%d\", v); return _curium_fmt_buf; }\n"
+        "static inline const char* curium_any_to_str(unsigned int v) { snprintf(_curium_fmt_buf, 64, \"%u\", v); return _curium_fmt_buf; }\n"
+        "static inline const char* curium_any_to_str(long v) { snprintf(_curium_fmt_buf, 64, \"%ld\", v); return _curium_fmt_buf; }\n"
+        "static inline const char* curium_any_to_str(unsigned long v) { snprintf(_curium_fmt_buf, 64, \"%lu\", v); return _curium_fmt_buf; }\n"
+        "static inline const char* curium_any_to_str(float v) { snprintf(_curium_fmt_buf, 64, \"%g\", (double)v); return _curium_fmt_buf; }\n"
+        "static inline const char* curium_any_to_str(double v) { snprintf(_curium_fmt_buf, 64, \"%g\", v); return _curium_fmt_buf; }\n"
+        "static inline const char* curium_any_to_str(void* v) { snprintf(_curium_fmt_buf, 64, \"%p\", v); return _curium_fmt_buf; }\n"
+        "#endif\n\n"
     );
+
+    /* Phase 0: Emit top-level polyglot blocks BEFORE extern "C"
+     * This allows C++ headers like <iostream> to be included safely. */
+    for (curium_ast_v2_node_t* node = ast->head; node; node = node->next) {
+        if (node->kind == CURIUM_AST_V2_POLYGLOT) {
+            curium_string_append(cg.includes, node->as.polyglot.code->data);
+            curium_string_append(cg.includes, "\n");
+        }
+    }
+
+    curium_string_append(cg.includes, "#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n");
 
     /* Pre-pass: Emit DYN_OP functions at top level (must be outside other functions in C99) */
     for (curium_ast_v2_node_t* fn_node = ast->head; fn_node; fn_node = fn_node->next) {
@@ -1688,7 +1712,11 @@ curium_string_t* curium_codegen_v2_to_c(const curium_ast_v2_list_t* ast) {
     {
         curium_ast_v2_node_t* s = ast->head;
         while (s) {
-            curium_codegen_v2_generate_stmt(&cg, s);
+            /* Skip top-level polyglot blocks here; they are emitted in Phase 0 (preamble)
+             * to allow for early C++ includes outside of extern "C" wrappers. */
+            if (s->kind != CURIUM_AST_V2_POLYGLOT) {
+                curium_codegen_v2_generate_stmt(&cg, s);
+            }
             s = s->next;
         }
     }
@@ -1714,6 +1742,7 @@ curium_string_t* curium_codegen_v2_to_c(const curium_ast_v2_list_t* ast) {
     curium_string_append(final_out, cg.forward_decls->data);
     curium_string_append(final_out, cg.closures->data);
     curium_string_append(final_out, cg.output->data);
+    curium_string_append(final_out, "\n#ifdef __cplusplus\n}\n#endif\n");
 
     curium_codegen_v2_destroy(&cg);
     return final_out;

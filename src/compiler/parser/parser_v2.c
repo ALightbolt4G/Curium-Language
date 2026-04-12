@@ -21,11 +21,13 @@ typedef struct {
     curium_token_t current;
     curium_token_t previous;
     int had_error;
+    int has_cpp_blocks;
 } curium_parser_v2_t;
 
 static void curium_parser_v2_init(curium_parser_v2_t* p, const char* src) {
     memset(p, 0, sizeof(*p));
     curium_lexer_v2_init(&p->lexer, src);
+    p->has_cpp_blocks = 0;
     p->current = curium_lexer_v2_next_token(&p->lexer);
 }
 
@@ -1748,20 +1750,18 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_stmt(curium_parser_v2_t* p) 
     if (is_poly_c || is_poly_cpp) {
         size_t line = p->current.line;
         size_t col  = p->current.column;
-        curium_parser_v2_advance(p);
-        curium_parser_v2_expect(p, CURIUM_TOK_LBRACE, "{");
-
-        /* FIX #004: raw character capture — read directly from the lexer's source
-         * buffer instead of reassembling from tokens.  Token-based reconstruction
-         * mangles `->`, drops `#`, collapses whitespace, and mis-quotes strings.
-         *
-         * Algorithm: after consuming the opening `{` (done by expect above),
-         * record the current lexer position, then scan raw chars counting braces
-         * until depth reaches zero.  Advance the lexer past the closing `}`.   */
+        curium_parser_v2_advance(p); // consume keyword 'c' or 'cpp'
+        
+        if (p->current.kind != CURIUM_TOK_LBRACE) {
+            curium_parser_v2_expect(p, CURIUM_TOK_LBRACE, "{"); // triggers error
+        }
+        
+        /* Capture raw content start immediately after the '{' char */
+        size_t raw_start = p->lexer.pos;
+        curium_parser_v2_advance(p); // advance parser past '{'
+        
         curium_string_t* code = curium_string_new("");
         {
-            /* The lexer position is stored in p->lexer.pos; src in p->lexer.src. */
-            size_t raw_start = p->lexer.pos;
             size_t raw_i     = raw_start;
             size_t raw_len   = p->lexer.length;
             int brace_depth  = 1;
@@ -1803,6 +1803,7 @@ static curium_ast_v2_node_t* curium_parser_v2_parse_stmt(curium_parser_v2_t* p) 
         curium_ast_v2_node_t* poly = curium_ast_v2_new(CURIUM_AST_V2_POLYGLOT, line, col);
         poly->as.polyglot.code   = code;
         poly->as.polyglot.is_cpp = is_poly_cpp;
+        if (is_poly_cpp) p->has_cpp_blocks = 1;
         return poly;
     }
 
@@ -1912,12 +1913,12 @@ curium_ast_v2_list_t curium_parse_v2(const char* src) {
     /* Transfer arena ownership to the AST list.
      * curium_ast_v2_free_list() will call curium_arena_destroy() on it. */
     ast.arena = session_arena;
+    ast.has_cpp_blocks = parser.has_cpp_blocks;
 
     if (had_error) {
         curium_ast_v2_free_list(&ast); /* also destroys ast.arena */
         curium_error_set(CURIUM_ERROR_PARSE, "aborting due to previous parse errors");
     }
 
-    /* FIX #001: removed duplicate 'return ast;' that was dead code */
     return ast;
 }

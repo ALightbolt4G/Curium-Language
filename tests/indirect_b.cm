@@ -1,0 +1,2 @@
+import "indirect_a.cm";
+fn b_func() { print("B depends on A"); }

@@ -1,0 +1,2 @@
+import "direct_self.cm";
+fn main() { print("I imported myself!"); }

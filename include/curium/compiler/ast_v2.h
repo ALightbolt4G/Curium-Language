@@ -384,6 +384,7 @@ struct curium_ast_v2_list {
      * curium_ast_v2_free_list() destroys it in O(blocks) rather than O(nodes).
      * NULL means nodes were individually malloc'd (legacy path). */
     curium_ast_arena_t*       arena;
+    int                       has_cpp_blocks;
 };
 
 /* Function declarations */

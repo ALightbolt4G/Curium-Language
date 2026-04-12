@@ -1,0 +1,2 @@
+import "indirect_b.cm";
+fn main() { print("Indirect cycle!"); }
