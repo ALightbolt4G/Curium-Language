@@ -32,6 +32,8 @@
 #define curium_mkdir(dir) _mkdir(dir)
 #define curium_access _access
 #define CURIUM_DEFAULT_OUT "a.exe"
+#define popen _popen
+#define pclose _pclose
 #endif
 #include <ctype.h>
 
