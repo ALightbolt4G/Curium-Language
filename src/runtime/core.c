@@ -49,7 +49,9 @@ void curium_init(void) {
     if (len > 0) {
         exe_path[len] = '\0';
         char* dir = dirname(exe_path);
-        chdir(dir);
+        if (chdir(dir) != 0) {
+            /* Ignore chdir error */
+        }
     }
 #endif
 
